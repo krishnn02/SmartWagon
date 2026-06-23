@@ -71,8 +71,8 @@ export default function FaultsAlertsPage() {
           <CardTitle className="text-lg text-card-foreground">Fault Log</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-border overflow-hidden">
-            <Table>
+          <div className="rounded-md border border-border overflow-x-auto">
+            <Table className="min-w-[700px]">
               <TableHeader className="bg-muted/50">
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="text-muted-foreground font-medium w-[200px]">Timestamp</TableHead>

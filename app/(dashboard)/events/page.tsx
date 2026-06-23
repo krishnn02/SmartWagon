@@ -42,8 +42,8 @@ export default function EventHistoryPage() {
         </CardHeader>
         {systemEventsExpanded && (
           <CardContent>
-            <div className="rounded-md border border-border overflow-hidden">
-              <Table>
+            <div className="rounded-md border border-border overflow-x-auto">
+              <Table className="min-w-[600px]">
                 <TableHeader className="bg-muted/50">
                   <TableRow className="border-border hover:bg-transparent">
                     <TableHead className="text-muted-foreground font-medium w-[200px]">Timestamp</TableHead>
@@ -111,8 +111,8 @@ export default function EventHistoryPage() {
         </CardHeader>
         {brakeTimelineExpanded && (
           <CardContent>
-            <div className="rounded-md border border-border overflow-hidden">
-              <Table>
+            <div className="rounded-md border border-border overflow-x-auto">
+              <Table className="min-w-[800px]">
                 <TableHeader className="bg-muted/50">
                   <TableRow className="border-border hover:bg-transparent">
                     <TableHead className="text-muted-foreground font-medium">Timestamp</TableHead>

@@ -27,16 +27,27 @@ const navigation = [
   { name: "Reports", href: "/reports", icon: FileText },
 ];
 
-export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
+export function Sidebar({ isCollapsed, closeSidebar }: { isCollapsed: boolean, closeSidebar?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <div 
-      className={cn(
-        "flex h-full flex-col bg-background border-border transition-all duration-300 relative overflow-hidden whitespace-nowrap",
-        isCollapsed ? "w-0 border-r-0" : "w-64 border-r"
+    <>
+      {/* Mobile Backdrop */}
+      {!isCollapsed && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 md:hidden transition-opacity"
+          onClick={closeSidebar}
+        />
       )}
-    >
+
+      {/* Sidebar Container */}
+      <div 
+        className={cn(
+          "flex h-full flex-col bg-background border-border transition-all duration-300 relative overflow-hidden whitespace-nowrap",
+          "absolute md:relative z-50 md:z-0",
+          isCollapsed ? "-translate-x-full md:translate-x-0 md:w-0 border-r-0" : "translate-x-0 w-64 border-r"
+        )}
+      >
       <div className="flex flex-1 flex-col overflow-y-auto px-4 py-6">
         <nav className="flex-1 space-y-1">
           {navigation.map((item) => {
@@ -66,5 +77,6 @@ export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
         </nav>
       </div>
     </div>
+    </>
   );
 }
