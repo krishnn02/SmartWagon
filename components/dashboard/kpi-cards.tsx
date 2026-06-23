@@ -20,22 +20,22 @@ function CircularGauge({ value, max, color, label, unit }: GaugeProps) {
 
   return (
     <div className="flex flex-col items-center justify-center relative">
-      <svg className="w-32 h-32 transform -rotate-90">
+      <svg className="w-32 h-32 transform -rotate-90 drop-shadow-sm">
         <circle
           cx="64"
           cy="64"
           r={radius}
           stroke="currentColor"
-          strokeWidth="8"
+          strokeWidth="10"
           fill="transparent"
-          className="text-zinc-800"
+          className="text-slate-100"
         />
         <circle
           cx="64"
           cy="64"
           r={radius}
           stroke={color}
-          strokeWidth="8"
+          strokeWidth="10"
           fill="transparent"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
@@ -44,12 +44,12 @@ function CircularGauge({ value, max, color, label, unit }: GaugeProps) {
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center text-center">
-        <span className="text-2xl font-bold tracking-tighter" style={{ color }}>
+        <span className="text-3xl font-black tracking-tighter" style={{ color }}>
           {value.toFixed(2)}
         </span>
-        <span className="text-xs text-zinc-500">{unit}</span>
+        <span className="text-xs text-muted-foreground">{unit}</span>
       </div>
-      <div className="mt-4 font-medium text-zinc-300 tracking-wide">{label}</div>
+      <div className="mt-4 font-medium text-foreground tracking-wide">{label}</div>
     </div>
   );
 }
@@ -58,7 +58,7 @@ export function KpiCards({ data }: { data: BpcPressure | null }) {
   const defaultVal = 0.0;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <Card className="bg-zinc-950 border-zinc-800 shadow-xl">
+      <Card className="bg-card border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
         <CardContent className="pt-6">
           <CircularGauge
             value={data?.bp ?? defaultVal}
@@ -69,7 +69,7 @@ export function KpiCards({ data }: { data: BpcPressure | null }) {
           />
         </CardContent>
       </Card>
-      <Card className="bg-zinc-950 border-zinc-800 shadow-xl">
+      <Card className="bg-card border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
         <CardContent className="pt-6">
           <CircularGauge
             value={data?.fp ?? defaultVal}
@@ -80,7 +80,7 @@ export function KpiCards({ data }: { data: BpcPressure | null }) {
           />
         </CardContent>
       </Card>
-      <Card className="bg-zinc-950 border-zinc-800 shadow-xl">
+      <Card className="bg-card border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
         <CardContent className="pt-6">
           <CircularGauge
             value={data?.cr ?? defaultVal}
@@ -91,7 +91,7 @@ export function KpiCards({ data }: { data: BpcPressure | null }) {
           />
         </CardContent>
       </Card>
-      <Card className="bg-zinc-950 border-zinc-800 shadow-xl">
+      <Card className="bg-card border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
         <CardContent className="pt-6">
           <CircularGauge
             value={data?.bc ?? defaultVal}

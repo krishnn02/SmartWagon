@@ -18,48 +18,48 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <BarChart3 className="w-6 h-6 text-purple-500" />
           Analytics Dashboard
         </h1>
       </div>
 
       {isLoading ? (
-        <div className="text-zinc-500">Calculating analytics...</div>
+        <div className="text-muted-foreground">Calculating analytics...</div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-zinc-950 border-zinc-800">
+            <Card className="bg-card border-border">
               <CardContent className="pt-6 flex items-center gap-4">
                 <div className="p-4 bg-amber-500/10 rounded-full">
                   <Activity className="w-8 h-8 text-amber-500" />
                 </div>
                 <div>
-                  <div className="text-sm text-zinc-400 font-medium">Brake Applications</div>
-                  <div className="text-3xl font-bold text-zinc-100">{totalApplications}</div>
+                  <div className="text-sm text-muted-foreground font-medium">Brake Applications</div>
+                  <div className="text-3xl font-bold text-card-foreground">{totalApplications}</div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-zinc-950 border-zinc-800">
+            <Card className="bg-card border-border">
               <CardContent className="pt-6 flex items-center gap-4">
                 <div className="p-4 bg-emerald-500/10 rounded-full">
                   <Activity className="w-8 h-8 text-emerald-500" />
                 </div>
                 <div>
-                  <div className="text-sm text-zinc-400 font-medium">Brake Releases</div>
-                  <div className="text-3xl font-bold text-zinc-100">{totalReleases}</div>
+                  <div className="text-sm text-muted-foreground font-medium">Brake Releases</div>
+                  <div className="text-3xl font-bold text-card-foreground">{totalReleases}</div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-zinc-950 border-zinc-800">
+            <Card className="bg-card border-border">
               <CardContent className="pt-6 flex items-center gap-4">
                 <div className="p-4 bg-red-500/10 rounded-full">
                   <ShieldAlert className="w-8 h-8 text-red-500" />
                 </div>
                 <div>
-                  <div className="text-sm text-zinc-400 font-medium">Total Faults</div>
+                  <div className="text-sm text-muted-foreground font-medium">Total Faults</div>
                   <div className="text-3xl font-bold text-red-500">{totalFaults}</div>
                 </div>
               </CardContent>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -12,7 +13,9 @@ import {
   BarChart3, 
   FileText, 
   Server,
-  TrainFront
+  TrainFront,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 const navigation = [
@@ -24,17 +27,16 @@ const navigation = [
   { name: "Reports", href: "/reports", icon: FileText },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isCollapsed }: { isCollapsed: boolean }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full w-64 flex-col bg-zinc-950 border-r border-zinc-800">
-      <div className="flex h-16 shrink-0 items-center gap-3 px-6 border-b border-zinc-800">
-        <div className="flex items-center justify-center rounded-md bg-blue-600 p-1.5 shadow-sm shadow-blue-500/20">
-          <TrainFront className="h-5 w-5 text-white" />
-        </div>
-        <h1 className="text-lg font-bold text-zinc-100 tracking-tight">Smart Wagon</h1>
-      </div>
+    <div 
+      className={cn(
+        "flex h-full flex-col bg-background border-border transition-all duration-300 relative overflow-hidden whitespace-nowrap",
+        isCollapsed ? "w-0 border-r-0" : "w-64 border-r"
+      )}
+    >
       <div className="flex flex-1 flex-col overflow-y-auto px-4 py-6">
         <nav className="flex-1 space-y-1">
           {navigation.map((item) => {
@@ -45,19 +47,19 @@ export function Sidebar() {
                 href={item.href}
                 className={cn(
                   isActive
-                    ? "bg-zinc-800 text-white"
-                    : "text-zinc-400 hover:bg-zinc-900 hover:text-white",
+                    ? "bg-blue-50 text-blue-700 font-semibold shadow-sm border-l-4 border-blue-600 -ml-4 pl-7 rounded-r-md rounded-l-none"
+                    : "text-muted-foreground hover:bg-slate-50 hover:text-slate-900",
                   "group flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors"
                 )}
               >
                 <item.icon
                   className={cn(
-                    isActive ? "text-white" : "text-zinc-500 group-hover:text-zinc-300",
+                    isActive ? "text-blue-600" : "text-muted-foreground group-hover:text-slate-600",
                     "mr-3 h-5 w-5 flex-shrink-0"
                   )}
                   aria-hidden="true"
                 />
-                {item.name}
+                <span className="truncate">{item.name}</span>
               </Link>
             );
           })}

@@ -38,7 +38,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-white">Overview</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Overview</h1>
         <div className="flex items-center gap-2">
           {isMockMode && (
             <span className="text-xs px-2 py-1 bg-amber-500/20 text-amber-500 rounded border border-amber-500/30">

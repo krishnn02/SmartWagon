@@ -24,37 +24,37 @@ export default function EventHistoryPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <History className="w-6 h-6 text-blue-500" />
           Event History
         </h1>
       </div>
 
-      <Card className="bg-zinc-950 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <div 
             className="flex items-center gap-2 cursor-pointer select-none group" 
             onClick={() => setSystemEventsExpanded(!systemEventsExpanded)}
           >
-            <CardTitle className="text-lg text-zinc-100 group-hover:text-white transition-colors">System Events Log</CardTitle>
-            {systemEventsExpanded ? <ChevronUp className="w-5 h-5 text-zinc-400 group-hover:text-zinc-300" /> : <ChevronDown className="w-5 h-5 text-zinc-400 group-hover:text-zinc-300" />}
+            <CardTitle className="text-lg text-card-foreground group-hover:text-foreground transition-colors">System Events Log</CardTitle>
+            {systemEventsExpanded ? <ChevronUp className="w-5 h-5 text-muted-foreground group-hover:text-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground group-hover:text-foreground" />}
           </div>
         </CardHeader>
         {systemEventsExpanded && (
           <CardContent>
-            <div className="rounded-md border border-zinc-800 overflow-hidden">
+            <div className="rounded-md border border-border overflow-hidden">
               <Table>
-                <TableHeader className="bg-zinc-900/50">
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableHead className="text-zinc-400 font-medium w-[200px]">Timestamp</TableHead>
-                    <TableHead className="text-zinc-400 font-medium">Event Message</TableHead>
-                    <TableHead className="text-zinc-400 font-medium text-right">Status</TableHead>
+                <TableHeader className="bg-muted/50">
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="text-muted-foreground font-medium w-[200px]">Timestamp</TableHead>
+                    <TableHead className="text-muted-foreground font-medium">Event Message</TableHead>
+                    <TableHead className="text-muted-foreground font-medium text-right">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isEventsLoading && (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-8 text-zinc-500">
+                      <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                         Loading events...
                       </TableCell>
                     </TableRow>
@@ -67,18 +67,18 @@ export default function EventHistoryPage() {
                     </TableRow>
                   )}
                   {events?.map((event, index) => (
-                    <TableRow key={`${event.timestamp}-${index}`} className="border-zinc-800 hover:bg-zinc-900/50 transition-colors">
-                      <TableCell className="text-zinc-300">
+                    <TableRow key={`${event.timestamp}-${index}`} className="border-border hover:bg-muted/50 transition-colors">
+                      <TableCell className="text-foreground">
                         {format(new Date(event.timestamp), "yyyy-MM-dd HH:mm:ss")}
                       </TableCell>
-                      <TableCell className="text-zinc-200 font-medium">
+                      <TableCell className="text-card-foreground font-medium">
                         {event.event_message}
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          event.event_status === "Success" ? "bg-emerald-500/10 text-emerald-500" :
-                          event.event_status === "Failed" ? "bg-red-500/10 text-red-500" :
-                          "bg-blue-500/10 text-blue-500"
+                        <span className={`px-2 py-1 rounded text-xs font-semibold border ${
+                          event.event_status === "Success" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+                          event.event_status === "Failed" ? "bg-red-100 text-red-800 border-red-200" :
+                          "bg-blue-100 text-blue-800 border-blue-200"
                         }`}>
                           {event.event_status || "Unknown"}
                         </span>
@@ -87,7 +87,7 @@ export default function EventHistoryPage() {
                   ))}
                   {!isEventsLoading && events?.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-8 text-zinc-500">
+                      <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                         No events recorded
                       </TableCell>
                     </TableRow>
@@ -99,35 +99,35 @@ export default function EventHistoryPage() {
         )}
       </Card>
 
-      <Card className="bg-zinc-950 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <div 
             className="flex items-center gap-2 cursor-pointer select-none group" 
             onClick={() => setBrakeTimelineExpanded(!brakeTimelineExpanded)}
           >
-            <CardTitle className="text-lg text-zinc-100 group-hover:text-white transition-colors">Brake Timeline</CardTitle>
-            {brakeTimelineExpanded ? <ChevronUp className="w-5 h-5 text-zinc-400 group-hover:text-zinc-300" /> : <ChevronDown className="w-5 h-5 text-zinc-400 group-hover:text-zinc-300" />}
+            <CardTitle className="text-lg text-card-foreground group-hover:text-foreground transition-colors">Brake Timeline</CardTitle>
+            {brakeTimelineExpanded ? <ChevronUp className="w-5 h-5 text-muted-foreground group-hover:text-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground group-hover:text-foreground" />}
           </div>
         </CardHeader>
         {brakeTimelineExpanded && (
           <CardContent>
-            <div className="rounded-md border border-zinc-800 overflow-hidden">
+            <div className="rounded-md border border-border overflow-hidden">
               <Table>
-                <TableHeader className="bg-zinc-900/50">
-                  <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableHead className="text-zinc-400 font-medium">Timestamp</TableHead>
-                    <TableHead className="text-zinc-400 font-medium text-right">BP</TableHead>
-                    <TableHead className="text-zinc-400 font-medium text-right">FP</TableHead>
-                    <TableHead className="text-zinc-400 font-medium text-right">CR</TableHead>
-                    <TableHead className="text-zinc-400 font-medium text-right">BC</TableHead>
-                    <TableHead className="text-zinc-400 font-medium">Status</TableHead>
-                    <TableHead className="text-zinc-400 font-medium">Duration</TableHead>
+                <TableHeader className="bg-muted/50">
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="text-muted-foreground font-medium">Timestamp</TableHead>
+                    <TableHead className="text-muted-foreground font-medium text-right">BP</TableHead>
+                    <TableHead className="text-muted-foreground font-medium text-right">FP</TableHead>
+                    <TableHead className="text-muted-foreground font-medium text-right">CR</TableHead>
+                    <TableHead className="text-muted-foreground font-medium text-right">BC</TableHead>
+                    <TableHead className="text-muted-foreground font-medium">Status</TableHead>
+                    <TableHead className="text-muted-foreground font-medium">Duration</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isHistoryLoading && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-zinc-500">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         Loading timeline data...
                       </TableCell>
                     </TableRow>
@@ -140,31 +140,31 @@ export default function EventHistoryPage() {
                     </TableRow>
                   )}
                   {history?.map((row, index) => (
-                    <TableRow key={`${row.timestamp}-${index}`} className="border-zinc-800 hover:bg-zinc-900/50 transition-colors">
-                      <TableCell className="text-zinc-300">
+                    <TableRow key={`${row.timestamp}-${index}`} className="border-border hover:bg-muted/50 transition-colors">
+                      <TableCell className="text-foreground">
                         {format(new Date(row.timestamp), "yyyy-MM-dd HH:mm:ss")}
                       </TableCell>
-                      <TableCell className="text-right text-emerald-400 font-medium">{row.bp?.toFixed(2) || "-"}</TableCell>
-                      <TableCell className="text-right text-zinc-300 font-medium">{row.fp?.toFixed(2) || "-"}</TableCell>
-                      <TableCell className="text-right text-blue-400 font-medium">{row.cr?.toFixed(2) || "-"}</TableCell>
-                      <TableCell className="text-right text-red-400 font-medium">{row.bc?.toFixed(2) || "-"}</TableCell>
+                      <TableCell className="text-right text-emerald-600 font-semibold">{row.bp?.toFixed(2) || "-"}</TableCell>
+                      <TableCell className="text-right text-slate-700 font-semibold">{row.fp?.toFixed(2) || "-"}</TableCell>
+                      <TableCell className="text-right text-blue-600 font-semibold">{row.cr?.toFixed(2) || "-"}</TableCell>
+                      <TableCell className="text-right text-red-600 font-semibold">{row.bc?.toFixed(2) || "-"}</TableCell>
                       <TableCell>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          row.brake_status === "Brake Applied" ? "bg-amber-500/10 text-amber-500" :
-                          row.brake_status === "Brake Released" ? "bg-emerald-500/10 text-emerald-500" :
-                          "bg-zinc-800 text-zinc-400"
+                        <span className={`px-2 py-1 rounded text-xs font-semibold border ${
+                          row.brake_status === "Brake Applied" ? "bg-blue-100 text-blue-800 border-blue-200" :
+                          row.brake_status === "Brake Released" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+                          "bg-slate-100 text-slate-800 border-slate-200"
                         }`}>
                           {row.brake_status || "Unknown"}
                         </span>
                       </TableCell>
-                      <TableCell className="text-zinc-400">
+                      <TableCell className="text-muted-foreground">
                         {row.brake_duration ? `${row.brake_duration}s` : "-"}
                       </TableCell>
                     </TableRow>
                   ))}
                   {!isHistoryLoading && history?.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-zinc-500">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No data available
                       </TableCell>
                     </TableRow>

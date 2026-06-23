@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { COLORS } from "@/constants";
 import { BpcPressure } from "@/types/database";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -26,82 +26,108 @@ export function PressureTimeline({ dataHistory }: { dataHistory: BpcPressure[] }
   }));
 
   return (
-    <Card className="bg-zinc-950 border-zinc-800 shadow-xl col-span-1 md:col-span-4 mt-6">
+    <Card className="bg-card border-slate-200/60 shadow-sm hover:shadow-md transition-shadow col-span-1 md:col-span-4 mt-6">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold text-zinc-100">
+        <CardTitle className="text-lg font-semibold text-card-foreground">
           Realtime Pressure Telemetry
         </CardTitle>
-        <CardDescription className="text-zinc-500">
+        <CardDescription className="text-muted-foreground">
           Live monitoring of Brake Pipe, Feed Pipe, Control Reservoir, and Brake Cylinder
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-[400px] w-full mt-4">
           <ResponsiveContainer width="100%" minHeight={400}>
-            <LineChart
+            <AreaChart
               data={chartData}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+              <defs>
+                <linearGradient id="colorBp" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={COLORS.bp} stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor={COLORS.bp} stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorFp" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={COLORS.fp} stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor={COLORS.fp} stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorCr" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={COLORS.cr} stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor={COLORS.cr} stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorBc" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={COLORS.bc} stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor={COLORS.bc} stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
               <XAxis 
                 dataKey="time" 
-                stroke="#52525b" 
-                tick={{ fill: "#a1a1aa", fontSize: 12 }} 
+                stroke="var(--color-muted-foreground)" 
+                tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} 
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis 
-                stroke="#52525b" 
-                tick={{ fill: "#a1a1aa", fontSize: 12 }}
+                stroke="var(--color-muted-foreground)" 
+                tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
                 domain={[0, 'dataMax + 1']}
               />
               <Tooltip 
-                contentStyle={{ backgroundColor: "#09090b", borderColor: "#27272a", color: "#f4f4f5" }}
-                itemStyle={{ color: "#f4f4f5" }}
+                contentStyle={{ backgroundColor: "var(--color-card)", borderColor: "var(--color-border)", color: "var(--color-card-foreground)" }}
+                itemStyle={{ color: "var(--color-card-foreground)" }}
               />
               <Legend 
                 wrapperStyle={{ paddingTop: "20px" }}
                 iconType="circle"
               />
-              <Line 
+              <Area 
                 type="monotone" 
                 dataKey="bp" 
                 name="Brake Pipe (BP)" 
                 stroke={COLORS.bp} 
-                strokeWidth={2}
+                fillOpacity={1} 
+                fill="url(#colorBp)"
+                strokeWidth={3}
                 dot={false}
                 isAnimationActive={false}
               />
-              <Line 
+              <Area 
                 type="monotone" 
                 dataKey="fp" 
                 name="Feed Pipe (FP)" 
                 stroke={COLORS.fp} 
-                strokeWidth={2}
+                fillOpacity={1} 
+                fill="url(#colorFp)"
+                strokeWidth={3}
                 dot={false}
                 isAnimationActive={false}
               />
-              <Line 
+              <Area 
                 type="monotone" 
                 dataKey="cr" 
                 name="Control Reservoir (CR)" 
                 stroke={COLORS.cr} 
-                strokeWidth={2}
+                fillOpacity={1} 
+                fill="url(#colorCr)"
+                strokeWidth={3}
                 dot={false}
                 isAnimationActive={false}
               />
-              <Line 
+              <Area 
                 type="monotone" 
                 dataKey="bc" 
                 name="Brake Cylinder (BC)" 
                 stroke={COLORS.bc} 
-                strokeWidth={2}
+                fillOpacity={1} 
+                fill="url(#colorBc)"
+                strokeWidth={3}
                 dot={false}
                 isAnimationActive={false}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </CardContent>
