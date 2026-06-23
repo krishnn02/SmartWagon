@@ -13,29 +13,29 @@ interface GaugeProps {
 }
 
 function CircularGauge({ value, max, color, label, unit }: GaugeProps) {
-  const radius = 40;
+  const radius = 72;
   const circumference = 2 * Math.PI * radius;
   const percent = Math.min(Math.max(value / max, 0), 1);
   const strokeDashoffset = circumference - percent * circumference;
 
   return (
     <div className="flex flex-col items-center justify-center relative">
-      <svg className="w-32 h-32 transform -rotate-90 drop-shadow-sm">
+      <svg className="w-48 h-48 transform -rotate-90 drop-shadow-sm">
         <circle
-          cx="64"
-          cy="64"
+          cx="96"
+          cy="96"
           r={radius}
           stroke="currentColor"
-          strokeWidth="10"
+          strokeWidth="12"
           fill="transparent"
           className="text-slate-100"
         />
         <circle
-          cx="64"
-          cy="64"
+          cx="96"
+          cy="96"
           r={radius}
           stroke={color}
-          strokeWidth="10"
+          strokeWidth="12"
           fill="transparent"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
@@ -44,12 +44,12 @@ function CircularGauge({ value, max, color, label, unit }: GaugeProps) {
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center text-center">
-        <span className="text-3xl font-black tracking-tighter" style={{ color }}>
+        <span className="text-4xl font-black tracking-tighter" style={{ color }}>
           {value.toFixed(2)}
         </span>
-        <span className="text-xs text-muted-foreground">{unit}</span>
+        <span className="text-sm font-medium text-muted-foreground mt-2">{unit}</span>
       </div>
-      <div className="mt-4 font-medium text-foreground tracking-wide">{label}</div>
+      <div className="mt-6 font-medium text-foreground tracking-wide">{label}</div>
     </div>
   );
 }

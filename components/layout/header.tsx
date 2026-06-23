@@ -31,14 +31,13 @@ export function Header({ toggleSidebar }: { toggleSidebar?: () => void }) {
 
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <div className="flex flex-col items-end">
-            <span className="font-medium text-foreground">Coach: {COACH_INFO.coach_no}</span>
+          <div className="flex flex-col items-end justify-center">
+            <span className="font-medium text-foreground">Train: {COACH_INFO.Train_no}</span>
             <span className="text-xs text-muted-foreground">ID: {COACH_INFO.Actual_id}</span>
           </div>
           <div className="h-8 w-px bg-border" />
-          <div className="flex flex-col items-start">
-            <span className="font-medium text-foreground">Train: {COACH_INFO.Train_no}</span>
-            <span className="text-xs text-muted-foreground">Loc: {COACH_INFO.Location}</span>
+          <div className="flex flex-col items-start justify-center">
+            <span className="font-medium text-foreground">Loc: {COACH_INFO.Location}</span>
           </div>
         </div>
 

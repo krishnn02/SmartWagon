@@ -8,7 +8,7 @@ export const COACH_INFO = {
 
 export const COLORS = {
   bp: "#22c55e", // Green
-  fp: "#f8fafc", // White/Slate 50
+  fp: "#f97316", // Orange (was white/slate)
   cr: "#3b82f6", // Blue
   bc: "#ef4444", // Red
 };
