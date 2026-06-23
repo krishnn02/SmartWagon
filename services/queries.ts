@@ -17,7 +17,7 @@ export function usePressureHistory(limit = 100) {
       if (error) throw new Error(error.message);
       return data as BpcPressure[];
     },
-    refetchInterval: 2000, // Refetch automatically every 2 seconds
+    // Removed refetchInterval because it is now handled by WebSockets (RealtimeProvider)
   });
 }
 
@@ -35,7 +35,7 @@ export function useBrakeFaults() {
       if (error) throw new Error(error.message);
       return data as BrakeFaultEvent[];
     },
-    refetchInterval: 5000, // Refetch automatically every 5 seconds
+    refetchInterval: 60000, // Poll every 60 seconds for rare events
   });
 }
 
@@ -53,6 +53,6 @@ export function useEventHistory() {
       if (error) throw new Error(error.message);
       return data as EventPublish[];
     },
-    refetchInterval: 5000, // Refetch automatically every 5 seconds
+    refetchInterval: 60000, // Poll every 60 seconds for rare events
   });
 }

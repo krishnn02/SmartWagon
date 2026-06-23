@@ -36,11 +36,11 @@ export function PressureTimeline({ dataHistory }: { dataHistory: BpcPressure[] }
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[400px] w-full mt-4">
-          <ResponsiveContainer width="100%" minHeight={400}>
+        <div className="h-[400px] w-full mt-4 min-w-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={chartData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
             >
               <defs>
                 <linearGradient id="colorBp" x1="0" y1="0" x2="0" y2="1">
