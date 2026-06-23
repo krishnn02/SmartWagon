@@ -1,7 +1,7 @@
 "use client";
 
 import { useBrakeFaults } from "@/services/queries";
-import { format } from "date-fns";
+import { formatIST } from "@/lib/utils/time";
 import {
   Table,
   TableBody,
@@ -99,7 +99,7 @@ export default function FaultsAlertsPage() {
                 {faults?.map((fault, index) => (
                   <TableRow key={`${fault.timestamp}-${index}`} className="border-border hover:bg-muted/50 transition-colors">
                     <TableCell className="text-foreground">
-                      {format(new Date(fault.timestamp), "yyyy-MM-dd HH:mm:ss")}
+                      {formatIST(fault.timestamp)}
                     </TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded text-xs font-semibold border ${

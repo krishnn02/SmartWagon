@@ -13,12 +13,12 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { format } from "date-fns";
+import { formatISTTime } from "@/lib/utils/time";
 
 export function PressureTimeline({ dataHistory }: { dataHistory: BpcPressure[] }) {
   // Format data for recharts
   const chartData = dataHistory.map((d) => ({
-    time: format(new Date(d.timestamp), "HH:mm:ss"),
+    time: formatISTTime(d.timestamp),
     bp: d.bp,
     fp: d.fp,
     cr: d.cr,

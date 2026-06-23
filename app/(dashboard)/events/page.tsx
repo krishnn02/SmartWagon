@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useEventHistory, usePressureHistory } from "@/services/queries";
-import { format } from "date-fns";
+import { formatIST } from "@/lib/utils/time";
 import {
   Table,
   TableBody,
@@ -69,7 +69,7 @@ export default function EventHistoryPage() {
                   {events?.map((event, index) => (
                     <TableRow key={`${event.timestamp}-${index}`} className="border-border hover:bg-muted/50 transition-colors">
                       <TableCell className="text-foreground">
-                        {format(new Date(event.timestamp), "yyyy-MM-dd HH:mm:ss")}
+                        {formatIST(event.timestamp)}
                       </TableCell>
                       <TableCell className="text-card-foreground font-medium">
                         {event.event_message}
@@ -142,7 +142,7 @@ export default function EventHistoryPage() {
                   {history?.map((row, index) => (
                     <TableRow key={`${row.timestamp}-${index}`} className="border-border hover:bg-muted/50 transition-colors">
                       <TableCell className="text-foreground">
-                        {format(new Date(row.timestamp), "yyyy-MM-dd HH:mm:ss")}
+                        {formatIST(row.timestamp)}
                       </TableCell>
                       <TableCell className="text-right text-emerald-600 font-semibold">{row.bp?.toFixed(2) || "-"}</TableCell>
                       <TableCell className="text-right text-slate-700 font-semibold">{row.fp?.toFixed(2) || "-"}</TableCell>

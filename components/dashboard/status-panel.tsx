@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BpcPressure } from "@/types/database";
 import { Activity, AlertOctagon, Clock, ShieldCheck, AlertTriangle } from "lucide-react";
+import { formatISTTime12 } from "@/lib/utils/time";
 
 export function StatusPanel({ data }: { data: BpcPressure | null }) {
   const isApplied = data?.brake_status === "Brake Applied";
@@ -44,7 +45,7 @@ export function StatusPanel({ data }: { data: BpcPressure | null }) {
                 {data?.brake_status || "Unknown"}
               </div>
               <div className="text-sm text-muted-foreground mt-1">
-                Last updated: {data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "--:--:--"}
+                Last updated: {data?.timestamp ? formatISTTime12(data.timestamp) : "--:--:--"}
               </div>
             </div>
           </div>
@@ -98,7 +99,7 @@ export function StatusPanel({ data }: { data: BpcPressure | null }) {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-muted-foreground">Applied</span>
-                <span className="text-xs font-medium text-foreground">{data?.brake_applied_time ? new Date(data.brake_applied_time).toLocaleTimeString() : "--:--:--"}</span>
+                <span className="text-xs font-medium text-foreground">{data?.brake_applied_time ? formatISTTime12(data.brake_applied_time) : "--:--:--"}</span>
               </div>
             </div>
           </div>
