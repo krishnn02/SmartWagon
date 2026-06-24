@@ -56,6 +56,11 @@ export function Sidebar({ isCollapsed, closeSidebar }: { isCollapsed: boolean, c
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={() => {
+                  if (window.innerWidth < 768) {
+                    closeSidebar?.();
+                  }
+                }}
                 className={cn(
                   isActive
                     ? "bg-blue-50 text-blue-700 font-semibold shadow-sm border-l-4 border-blue-600 -ml-4 pl-7 rounded-r-md rounded-l-none"

@@ -28,9 +28,9 @@ function CircularGauge({ value, max, colorFrom, colorTo, label, acronym, unit }:
     return (
       <line
         key={i}
-        x1="134" // Inner edge
+        x1="134"
         y1="80"
-        x2="140" // Outer edge
+        x2="140"
         y2="80"
         stroke="currentColor"
         strokeWidth="2"
@@ -43,11 +43,15 @@ function CircularGauge({ value, max, colorFrom, colorTo, label, acronym, unit }:
 
   return (
     <div className="flex flex-col items-center justify-center relative">
-      <div className="text-sm font-extrabold text-slate-400 tracking-[0.2em] mb-4 uppercase drop-shadow-sm">
+      <div className="text-xs md:text-sm font-extrabold text-slate-400 tracking-[0.2em] mb-2 md:mb-4 uppercase drop-shadow-sm">
         {acronym}
       </div>
-      <div className="relative -mt-2 -mb-4">
-        <svg className="w-44 h-44 drop-shadow-md" style={{ transform: "rotate(150deg)" }}>
+      <div className="relative -mt-2 -mb-2 md:-mb-4">
+        <svg 
+          viewBox="0 0 160 160"
+          className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 drop-shadow-md" 
+          style={{ transform: "rotate(150deg)" }}
+        >
           <defs>
             <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor={colorFrom} />
@@ -115,15 +119,15 @@ function CircularGauge({ value, max, colorFrom, colorTo, label, acronym, unit }:
           </g>
         </svg>
       </div>
-      <div className="flex flex-col items-center mt-4 z-10">
-        <div className="text-[10px] font-bold text-slate-400 tracking-[0.15em] uppercase mb-1">
+      <div className="flex flex-col items-center mt-2 md:mt-4 z-10">
+        <div className="text-[9px] md:text-[10px] font-bold text-slate-400 tracking-[0.1em] md:tracking-[0.15em] uppercase mb-0.5 md:mb-1 whitespace-nowrap">
           {label}
         </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-4xl font-black tracking-tight text-slate-800">
+        <div className="flex items-baseline gap-1 md:gap-1.5">
+          <span className="text-2xl md:text-4xl font-black tracking-tight text-slate-800">
             {value.toFixed(1)}
           </span>
-          <span className="text-xs font-semibold text-slate-500 uppercase">
+          <span className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase">
             {unit}
           </span>
         </div>
@@ -135,13 +139,13 @@ function CircularGauge({ value, max, colorFrom, colorTo, label, acronym, unit }:
 export function KpiCards({ data }: { data: BpcPressure | null }) {
   const defaultVal = 0.0;
   
-  const cardClassName = "bg-gradient-to-b from-white to-slate-50/50 border-slate-200/60 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 rounded-[2rem] relative group overflow-hidden";
+  const cardClassName = "bg-gradient-to-b from-white to-slate-50/50 border-slate-200/60 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 rounded-[1.5rem] md:rounded-[2rem] relative group overflow-hidden";
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
       <Card className={cardClassName}>
         <div className="absolute inset-0 bg-gradient-to-br from-[#0ea5e9]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <CardContent className="pt-8 pb-8 relative z-10">
+        <CardContent className="p-4 md:pt-8 md:pb-8 relative z-10">
           <CircularGauge
             value={data?.bp ?? defaultVal}
             max={6.0}
@@ -156,7 +160,7 @@ export function KpiCards({ data }: { data: BpcPressure | null }) {
       
       <Card className={cardClassName}>
         <div className="absolute inset-0 bg-gradient-to-br from-[#0ea5e9]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <CardContent className="pt-8 pb-8 relative z-10">
+        <CardContent className="p-4 md:pt-8 md:pb-8 relative z-10">
           <CircularGauge
             value={data?.fp ?? defaultVal}
             max={6.0}
@@ -171,7 +175,7 @@ export function KpiCards({ data }: { data: BpcPressure | null }) {
       
       <Card className={cardClassName}>
         <div className="absolute inset-0 bg-gradient-to-br from-[#facc15]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <CardContent className="pt-8 pb-8 relative z-10">
+        <CardContent className="p-4 md:pt-8 md:pb-8 relative z-10">
           <CircularGauge
             value={data?.bc ?? defaultVal}
             max={4.0}
@@ -186,7 +190,7 @@ export function KpiCards({ data }: { data: BpcPressure | null }) {
       
       <Card className={cardClassName}>
         <div className="absolute inset-0 bg-gradient-to-br from-[#f43f5e]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <CardContent className="pt-8 pb-8 relative z-10">
+        <CardContent className="p-4 md:pt-8 md:pb-8 relative z-10">
           <CircularGauge
             value={data?.cr ?? defaultVal}
             max={6.0}
