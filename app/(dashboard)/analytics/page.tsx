@@ -148,9 +148,9 @@ export default function AnalyticsPage() {
                 <p className="text-sm text-slate-400 font-medium mt-1">Frequency of specific fault occurrences</p>
               </CardHeader>
               <CardContent className="p-8">
-                <div className="h-[320px] w-full relative">
+                <div className="h-[320px] w-full relative min-w-[300px]">
                   {faultData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="99%" height={320} minWidth={1} minHeight={1}>
                       <BarChart data={faultData} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#f1f5f9" />
                         <XAxis 

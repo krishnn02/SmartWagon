@@ -119,8 +119,8 @@ export function BrakeTimelineStats({ dataHistory }: { dataHistory: BpcPressure[]
             </div>
 
             {/* Glowing Step Chart */}
-            <div className="h-[280px] w-full relative">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[280px] w-full relative min-w-[300px]">
+              <ResponsiveContainer width="99%" height={280} minWidth={1} minHeight={1}>
                 <AreaChart
                   data={chartData}
                   margin={{ top: 20, right: 30, left: 10, bottom: 0 }}
