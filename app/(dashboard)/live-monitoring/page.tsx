@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
 import { PressureTimeline } from "@/components/dashboard/pressure-timeline";
+import { BrakeTimelineStats } from "@/components/dashboard/brake-timeline-stats";
 import { useRealtimeTelemetry } from "@/hooks/useRealtimeTelemetry";
 import { usePressureHistory } from "@/services/queries";
 import { BpcPressure } from "@/types/database";
@@ -45,6 +46,7 @@ export default function LiveMonitoringPage() {
 
       <KpiCards data={currentData} />
       <PressureTimeline dataHistory={history} />
+      <BrakeTimelineStats dataHistory={history} />
     </div>
   );
 }

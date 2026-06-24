@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { COACH_INFO } from "@/constants";
-import { BpcPressure } from "@/types/database";
+import { BpcPressure, BrakeFaultEvent } from "@/types/database";
 
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
@@ -32,6 +32,28 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             // and keep the array length within the limit (usually 100)
             const newData = [newRow, ...oldData];
             if (newData.length > 100) {
+              newData.pop();
+            }
+            return newData;
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "brake_fault_event",
+          filter: `device_id=eq.${COACH_INFO.device_id}`,
+        },
+        (payload) => {
+          const newFault = payload.new as BrakeFaultEvent;
+          
+          queryClient.setQueriesData({ queryKey: ["brake_faults"] }, (oldData: BrakeFaultEvent[] | undefined) => {
+            if (!oldData) return [newFault];
+            
+            const newData = [newFault, ...oldData];
+            if (newData.length > 50) {
               newData.pop();
             }
             return newData;
