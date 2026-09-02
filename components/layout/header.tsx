@@ -20,7 +20,7 @@ export function Header({ toggleSidebar }: { toggleSidebar?: () => void }) {
           <div className="flex items-center justify-center rounded-lg bg-blue-600 p-1.5 shadow-sm shadow-blue-500/20 shrink-0 hidden sm:flex">
             <TrainFront className="h-5 w-5 text-white" />
           </div>
-          <h1 className="text-base md:text-lg font-bold text-slate-900 tracking-tight whitespace-nowrap">Smart Wagon</h1>
+          <h1 className="text-base md:text-lg font-bold text-slate-900 tracking-tight whitespace-nowrap">Smart Coach</h1>
         </div>
 
         <div className="h-8 w-px bg-slate-200 hidden lg:block" />

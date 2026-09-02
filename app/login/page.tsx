@@ -36,7 +36,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 shadow-lg shadow-blue-500/30 mb-4">
             <TrainFront className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Smart Wagon</h1>
+          <h1 className="text-2xl font-bold text-white">Smart Coach</h1>
           <p className="text-slate-400 text-sm mt-1">Brake Binding Monitoring System</p>
         </div>
 

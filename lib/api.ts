@@ -2,23 +2,23 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.vaspsystemic.co
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("smart_wagon_token");
+  return localStorage.getItem("smart_coach_token");
 }
 
 export function setAuth(token: string, user: Record<string, unknown>) {
-  localStorage.setItem("smart_wagon_token", token);
-  localStorage.setItem("smart_wagon_user", JSON.stringify(user));
+  localStorage.setItem("smart_coach_token", token);
+  localStorage.setItem("smart_coach_user", JSON.stringify(user));
 }
 
 export function clearAuth() {
-  localStorage.removeItem("smart_wagon_token");
-  localStorage.removeItem("smart_wagon_user");
+  localStorage.removeItem("smart_coach_token");
+  localStorage.removeItem("smart_coach_user");
 }
 
 export function getStoredUser(): Record<string, unknown> | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem("smart_wagon_user");
+    const raw = localStorage.getItem("smart_coach_user");
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;

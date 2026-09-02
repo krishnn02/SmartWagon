@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Smart Wagon — Brake Binding Monitor",
+  title: "Smart Coach — Brake Binding Monitor",
   description: "Indian Railways Brake Binding Monitoring System",
 };
 

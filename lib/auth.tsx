@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t = localStorage.getItem("smart_wagon_token");
+    const t = localStorage.getItem("smart_coach_token");
     const u = getStoredUser() as AuthUser | null;
     if (t && u) {
       setToken(t);
