@@ -14,7 +14,6 @@ const FLAGS = [
   { key: "cr_overcharge" as const, label: "CR Overcharging", icon: ShieldAlert },
   { key: "emergency" as const, label: "Emergency Brake", icon: Siren },
   { key: "dv_defect" as const, label: "DV/BC Defect", icon: Gauge },
-  { key: "leakage" as const, label: "Air Leakage", icon: AlertTriangle },
 ];
 
 export function DiagnosticFlags({ alerts }: DiagnosticFlagsProps) {

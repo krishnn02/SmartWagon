@@ -54,10 +54,8 @@ export function ActiveFaults({ faults, onShowAll }: ActiveFaultsProps) {
                     {fault.severity}
                   </span>
                 </div>
-                <p className="text-[10px] text-red-600 mt-0.5 truncate">{fault.description}</p>
+                <p className="text-[10px] text-red-600 mt-0.5 truncate">{fault.description.replace(fault.deviceId, "").trim()}</p>
                 <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
-                  <span>{fault.deviceId}</span>
-                  <span>&middot;</span>
                   <span>{new Date(fault.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</span>
                 </div>
               </div>

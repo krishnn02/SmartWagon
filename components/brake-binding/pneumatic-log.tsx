@@ -55,7 +55,6 @@ export function PneumaticLog({ history, onShowAll }: PneumaticLogProps) {
               </span>
               <span className="text-xs text-slate-600 truncate">{row.coach_no}</span>
               <span className="text-xs font-mono text-red-600 font-semibold">BC: {row.bc.toFixed(2)}</span>
-              <span className="text-[10px] text-slate-400 truncate hidden sm:inline">{row.device_id}</span>
             </div>
           ))}
         </div>
