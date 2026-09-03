@@ -1,7 +1,7 @@
 "use client";
 
 import type { PneumaticHistoryRow } from "@/types/pneumatic";
-import { cn } from "@/lib/utils";
+import { cn, parseAndFormatIST } from "@/lib/utils";
 import { Clock, ArrowRight } from "lucide-react";
 
 interface PneumaticLogProps {
@@ -38,25 +38,31 @@ export function PneumaticLog({ history, onShowAll }: PneumaticLogProps) {
         <p className="text-xs text-slate-400 text-center py-8">No history data yet</p>
       ) : (
         <div className="space-y-2">
-          {recent.map((row, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-100 p-3 hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 shrink-0 w-[120px]">
-                <Clock className="h-3 w-3" />
-                {new Date(row.timestamp).toLocaleString("en-IN", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                  hour12: false,
-                  timeZone: "Asia/Kolkata",
-                })}
+          {recent.map((row, i) => {
+            console.log("DEBUG_TIMESTAMP", row.timestamp);
+            let derivedStatus = "IDLE";
+            if (row.bc > 0.4) derivedStatus = "APPLIED";
+            else if (row.bc > 0.1) derivedStatus = "RELEASED";
+
+            return (
+              <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-100 p-3 hover:bg-slate-50 transition-colors">
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 shrink-0 w-[120px]">
+                  <Clock className="h-3 w-3" />
+                  {parseAndFormatIST(row.timestamp, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false,
+                  })}
+                </div>
+                <span className={cn("text-[10px] font-semibold border rounded-full px-2 py-0.5", statusPillColor(derivedStatus))}>
+                  {derivedStatus}
+                </span>
+                <span className="text-xs text-slate-600 truncate">{row.coach_no}</span>
+                <span className="text-xs font-mono text-red-600 font-semibold">BC: {row.bc.toFixed(2)}</span>
               </div>
-              <span className={cn("text-[10px] font-semibold border rounded-full px-2 py-0.5", statusPillColor(row.brake_status))}>
-                {row.brake_status}
-              </span>
-              <span className="text-xs text-slate-600 truncate">{row.coach_no}</span>
-              <span className="text-xs font-mono text-red-600 font-semibold">BC: {row.bc.toFixed(2)}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

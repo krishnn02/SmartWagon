@@ -2,7 +2,7 @@
 
 import type { PneumaticFault } from "@/types/pneumatic";
 import { AlertTriangle, ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, parseAndFormatIST } from "@/lib/utils";
 
 interface ActiveFaultsProps {
   faults: PneumaticFault[];
@@ -56,7 +56,7 @@ export function ActiveFaults({ faults, onShowAll }: ActiveFaultsProps) {
                 </div>
                 <p className="text-[10px] text-red-600 mt-0.5 truncate">{fault.description.replace(fault.deviceId, "").trim()}</p>
                 <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
-                  <span>{new Date(fault.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</span>
+                  <span>{parseAndFormatIST(fault.timestamp)}</span>
                 </div>
               </div>
             </div>

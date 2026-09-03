@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import type { PneumaticHistoryRow } from "@/types/pneumatic";
+import { parseAndFormatIST } from "@/lib/utils";
 
 interface BrakeTimelineProps {
   history: PneumaticHistoryRow[];
@@ -11,11 +12,10 @@ interface BrakeTimelineProps {
 export function BrakeTimeline({ history }: BrakeTimelineProps) {
   const chartData = useMemo(() => {
     return [...history].reverse().map((row) => ({
-      time: new Date(row.timestamp).toLocaleTimeString("en-IN", {
+      time: parseAndFormatIST(row.timestamp, {
         hour: "2-digit",
         minute: "2-digit",
         hour12: false,
-        timeZone: "Asia/Kolkata",
       }),
       bc: row.bc,
       bp: row.bp,
@@ -45,7 +45,7 @@ export function BrakeTimeline({ history }: BrakeTimelineProps) {
         color, 
         width: step, 
         status,
-        timestamp: new Date(row.timestamp).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" })
+        timestamp: parseAndFormatIST(row.timestamp)
       };
     });
   }, [history]);

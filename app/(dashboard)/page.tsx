@@ -9,7 +9,6 @@ import { StatusCard } from "@/components/brake-binding/status-card";
 import { PneumaticGauge } from "@/components/brake-binding/pneumatic-gauge";
 import { PressureChart } from "@/components/brake-binding/pressure-chart";
 import { DiagnosticFlags } from "@/components/brake-binding/diagnostic-flags";
-import { BrakeTimeline } from "@/components/brake-binding/brake-timeline";
 import { PneumaticLog } from "@/components/brake-binding/pneumatic-log";
 import { ActiveFaults } from "@/components/brake-binding/active-faults";
 import { Loader2, RefreshCw } from "lucide-react";
@@ -112,9 +111,6 @@ export default function BrakeBindingPage() {
 
           {/* Diagnostic Flags */}
           <DiagnosticFlags alerts={status.alerts} />
-
-          {/* BC Over Time + Timeline */}
-          <BrakeTimeline history={historyAccum} />
 
           {/* Log + Faults */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

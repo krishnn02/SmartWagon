@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell } from "recharts";
 import type { PneumaticHistoryRow } from "@/types/pneumatic";
-import { cn } from "@/lib/utils";
+import { cn, parseAndFormatIST } from "@/lib/utils";
 
 interface PressureChartProps {
   history: PneumaticHistoryRow[];
@@ -30,19 +30,50 @@ export function PressureChart({ history }: PressureChartProps) {
   const [visibleMetrics, setVisibleMetrics] = useState<Set<string>>(new Set(["bp", "bc", "fp", "cr"]));
 
   const filteredData = useMemo(() => {
-    const now = new Date().getTime();
+    // If we have history, use the latest data point as 'now' so that historical data is visible.
+    // Otherwise fallback to the actual current time.
+    let now = new Date().getTime();
+    if (history.length > 0) {
+      let dStr = history[0].timestamp;
+      if (typeof dStr === 'string') dStr = dStr.replace(' ', 'T');
+      dStr = dStr + (dStr.endsWith('Z') || dStr.includes('+') ? '' : 'Z');
+      const latestTime = new Date(dStr).getTime();
+      if (!isNaN(latestTime)) now = latestTime;
+    }
+    
     const range = TIME_RANGES.find((r) => r.value === timeRange)?.seconds || 900;
     const cutoff = now - range * 1000;
 
-    return history
-      .filter((row) => new Date(row.timestamp).getTime() >= cutoff)
-      .map((row) => ({
-        time: new Date(row.timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Kolkata" }),
-        bp: row.bp,
-        fp: row.fp,
-        cr: row.cr,
-        bc: row.bc,
-      }));
+    return [...history]
+      .reverse() // Sort oldest first so the X-axis flows left to right
+      .filter((row) => {
+        let dStr = row.timestamp;
+        if (typeof dStr === 'string') dStr = dStr.replace(' ', 'T');
+        dStr = dStr + (dStr.endsWith('Z') || dStr.includes('+') ? '' : 'Z');
+        return new Date(dStr).getTime() >= cutoff;
+      })
+      .map((row) => {
+        let timelineColor = "#1e293b"; // Idle
+        let timelineStatus = "Idle";
+        if (row.bc > 0.4) {
+          timelineColor = "#7f1d1d"; // Applied
+          timelineStatus = "Applied";
+        } else if (row.bc > 0.1) {
+          timelineColor = "#065f46"; // Released
+          timelineStatus = "Released";
+        }
+
+        return {
+          time: parseAndFormatIST(row.timestamp, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }),
+          bp: row.bp,
+          fp: row.fp,
+          cr: row.cr,
+          bc: row.bc,
+          timelineColor,
+          timelineStatus,
+          timelineValue: 1, // Fixed height for the bar chart
+        };
+      });
   }, [history, timeRange]);
 
   const toggleMetric = (key: string) => {
@@ -102,7 +133,7 @@ export function PressureChart({ history }: PressureChartProps) {
 
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-          <AreaChart data={filteredData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+          <AreaChart data={filteredData} syncId="pressure-charts" margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="time" tick={{ fontSize: 10, fill: "#94a3b8" }} interval="preserveStartEnd" />
             <YAxis domain={[0, 7]} tick={{ fontSize: 10, fill: "#94a3b8" }} />
@@ -127,6 +158,84 @@ export function PressureChart({ history }: PressureChartProps) {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Braking State Graph */}
+      {filteredData.length > 0 && (
+        <div className="mt-6 border-t border-slate-100 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-slate-900">Braking State Timeline</h3>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 text-[10px] font-semibold text-red-700 bg-red-50 px-2 py-0.5 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-red-600" /> Applied
+              </span>
+              <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-emerald-600" /> Released
+              </span>
+              <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-slate-500" /> Idle
+              </span>
+            </div>
+          </div>
+          <div className="h-[150px]">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+              <AreaChart data={filteredData} syncId="pressure-charts" margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="time" tick={{ fontSize: 10, fill: "#94a3b8" }} interval="preserveStartEnd" />
+                <YAxis 
+                  domain={[0, 2]} 
+                  ticks={[0, 1, 2]} 
+                  tickFormatter={(val) => {
+                    if (val === 2) return "Applied";
+                    if (val === 1) return "Released";
+                    return "Idle";
+                  }}
+                  tick={{ fontSize: 10, fill: "#64748b", fontWeight: 600 }}
+                  width={60}
+                />
+                <Tooltip 
+                  cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '3 3' }} 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-white border border-slate-200 rounded shadow-lg p-3 text-xs">
+                          <p className="text-slate-500 mb-1">{data.time}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: data.timelineColor }} />
+                            <span className="font-bold text-sm" style={{ color: data.timelineColor }}>
+                              {data.timelineStatus}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <defs>
+                  <linearGradient id="colorState" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <Area 
+                  type="stepAfter" 
+                  dataKey={(row) => {
+                    if (row.bc > 0.4) return 2;
+                    if (row.bc > 0.1) return 1;
+                    return 0;
+                  }}
+                  stroke="#334155" 
+                  strokeWidth={2}
+                  fill="url(#colorState)"
+                  dot={false}
+                  activeDot={{ r: 4, fill: "#0f172a", stroke: "#fff", strokeWidth: 2 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

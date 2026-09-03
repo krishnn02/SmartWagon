@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { cn, parseAndFormatIST } from "@/lib/utils";
 
 interface StatusCardProps {
   state: string;
@@ -79,7 +79,7 @@ export function StatusCard({ state, brakeStatus, lastUpdated, readings }: Status
         </div>
       </div>
       {lastUpdated && (
-        <p className="text-[10px] text-white/40 mt-3">Last active: {new Date(lastUpdated).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</p>
+        <p className="text-[10px] text-white/40 mt-3">Last active: {parseAndFormatIST(lastUpdated)}</p>
       )}
     </div>
   );
