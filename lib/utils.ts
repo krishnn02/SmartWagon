@@ -15,9 +15,9 @@ export function parseAndFormatIST(timestamp: string | Date, options?: Intl.DateT
     dateStr = dateStr.replace(' ', 'T');
   }
   
-  // If the string lacks timezone info, force it to UTC by appending 'Z'
+  // If the string lacks timezone info, assume it is IST by appending '+05:30'
   if (typeof timestamp === 'string' && !dateStr.endsWith('Z') && !dateStr.includes('+')) {
-    dateStr += 'Z';
+    dateStr += '+05:30';
   }
   
   const d = new Date(dateStr);

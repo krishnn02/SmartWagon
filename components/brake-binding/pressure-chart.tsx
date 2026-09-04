@@ -36,7 +36,7 @@ export function PressureChart({ history }: PressureChartProps) {
     if (history.length > 0) {
       let dStr = history[0].timestamp;
       if (typeof dStr === 'string') dStr = dStr.replace(' ', 'T');
-      dStr = dStr + (dStr.endsWith('Z') || dStr.includes('+') ? '' : 'Z');
+      dStr = dStr + (dStr.endsWith('Z') || dStr.includes('+') ? '' : '+05:30');
       const latestTime = new Date(dStr).getTime();
       if (!isNaN(latestTime)) now = latestTime;
     }
@@ -49,7 +49,7 @@ export function PressureChart({ history }: PressureChartProps) {
       .filter((row) => {
         let dStr = row.timestamp;
         if (typeof dStr === 'string') dStr = dStr.replace(' ', 'T');
-        dStr = dStr + (dStr.endsWith('Z') || dStr.includes('+') ? '' : 'Z');
+        dStr = dStr + (dStr.endsWith('Z') || dStr.includes('+') ? '' : '+05:30');
         return new Date(dStr).getTime() >= cutoff;
       })
       .map((row) => {
