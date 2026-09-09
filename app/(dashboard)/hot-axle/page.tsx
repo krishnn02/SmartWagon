@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { LineChart, Bell, Loader2, Sparkles, Train } from "lucide-react";
+import { LineChart, Bell, Loader2, Sparkles, Train, Lock, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -62,13 +62,33 @@ export default function HotAxlePage() {
     refetchInterval: 30000, // Refetch every 30s
   });
 
+  const isAdmin =
+    user?.role === "Administrator" ||
+    user?.email?.toLowerCase() === "admin@vasp.com";
+
+  const hasModuleAccess =
+    isAdmin || user?.allowedModules?.includes("hot-axle");
+
   // Process data
   const mappedData = useMemo(() => {
     const result: MappedCoachData[] = [];
-    const activeCoaches = [...coaches];
+    let activeCoaches = [...coaches];
+
+    // Filter coaches according to user's assigned hot-axle devices
+    if (!isAdmin && user?.allowedDevices?.["hot-axle"]) {
+      const allowed = user.allowedDevices["hot-axle"];
+      if (!allowed.includes("ALL")) {
+        activeCoaches = activeCoaches.filter(
+          (c) =>
+            (c.device_id && allowed.includes(c.device_id)) ||
+            (c.coach_no && allowed.includes(c.coach_no)) ||
+            (c.actual_id && allowed.includes(c.actual_id))
+        );
+      }
+    }
 
     // If no coaches exist, but we have hams_data, generate a single fallback coach
-    if (activeCoaches.length === 0 && rawHamsData.length > 0) {
+    if (activeCoaches.length === 0 && rawHamsData.length > 0 && (isAdmin || user?.allowedDevices?.["hot-axle"]?.includes("ALL") || user?.allowedDevices?.["hot-axle"]?.includes("Raspberry_Fallback"))) {
       activeCoaches.push({
         id: 1,
         technical_id: `TECH-MASTER`,
@@ -193,6 +213,29 @@ export default function HotAxlePage() {
   };
 
   const currentTwinCoach = filteredData[selectedTwinCoachIndex] || filteredData[0] || mappedData[0];
+
+  if (!hasModuleAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center bg-white rounded-3xl border border-slate-200 shadow-sm max-w-lg mx-auto my-12">
+        <div className="p-4 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 mb-4">
+          <Lock className="h-10 w-10" />
+        </div>
+        <h2 className="text-xl font-black text-slate-900 mb-2">
+          Hot Axle Access Restricted
+        </h2>
+        <p className="text-sm text-slate-500 mb-6">
+          Your railway personnel profile (<strong>{user?.name || user?.first_name}</strong> - {user?.role}) does not have permission to view the Hot Axle system.
+        </p>
+        <Link
+          href="/"
+          className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md transition-colors flex items-center gap-2"
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          <span>Go to Brake Binding Dashboard</span>
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-6 lg:p-8 pt-6 pb-24 md:pb-8 h-full overflow-y-auto bg-slate-50 w-full overflow-x-hidden">
