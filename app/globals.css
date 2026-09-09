@@ -105,3 +105,48 @@
     @apply font-sans;
   }
 }
+
+/* ── Print / PDF styles for report generation ────────────────────── */
+@media print {
+  /* Hide everything except the report container */
+  body > * { display: none !important; }
+  header, nav, aside, footer,
+  [data-sidebar], [data-radix-popper-content-wrapper] { display: none !important; }
+
+  /* Show only the report modal backdrop contents */
+  body #report-container {
+    display: block !important;
+    position: static !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Make fixed overlay visible */
+  .fixed.inset-0 {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  /* Force color printing */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Page settings */
+  @page {
+    size: A4 landscape;
+    margin: 12mm 14mm;
+  }
+
+  /* Hide action bars on print */
+  .print\:hidden { display: none !important; }
+
+  /* Force body visible for report */
+  body { display: block !important; }
+}

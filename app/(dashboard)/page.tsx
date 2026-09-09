@@ -18,6 +18,8 @@ import { PressureChart, type DurationPreset } from "@/components/brake-binding/p
 import { DiagnosticFlags } from "@/components/brake-binding/diagnostic-flags";
 import { PneumaticLog } from "@/components/brake-binding/pneumatic-log";
 import { ActiveFaults } from "@/components/brake-binding/active-faults";
+import { ReportTriggerButton } from "@/components/reports/report-trigger-button";
+import { ReportModal } from "@/components/reports/report-modal";
 import { Loader2, RefreshCw, Thermometer, Lock } from "lucide-react";
 import Link from "next/link";
 
@@ -39,6 +41,7 @@ export default function BrakeBindingPage() {
   const [userSelectedDevice, setUserSelectedDevice] = useState<string>("");
   const [duration, setDuration] = useState<DurationPreset>("15m");
   const [customRange, setCustomRange] = useState<{ start?: string; end?: string }>({});
+  const [showReport, setShowReport] = useState(false);
 
   const isAdmin =
     user?.role === "Administrator" ||
@@ -231,12 +234,15 @@ export default function BrakeBindingPage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-slate-900">Pneumatic Gauges</h3>
-              <button
-                onClick={() => refetch()}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors"
-              >
-                <RefreshCw className="h-3 w-3" /> Refresh
-              </button>
+              <div className="flex items-center gap-2">
+                <ReportTriggerButton onClick={() => setShowReport(true)} />
+                <button
+                  onClick={() => refetch()}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors"
+                >
+                  <RefreshCw className="h-3 w-3" /> Refresh
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <PneumaticGauge
@@ -287,8 +293,38 @@ export default function BrakeBindingPage() {
           {/* Log + Faults */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <PneumaticLog history={historyAccum} />
-            <ActiveFaults faults={status.activeFaults || []} />
+            <ActiveFaults
+              faults={status.activeFaults || []}
+              faultHistory={status.faultHistory || []}
+              duration={duration}
+              customRange={customRange}
+              onDurationChange={(newDuration, start, end) => {
+                setDuration(newDuration);
+                if (newDuration === "custom" && start) {
+                  setCustomRange({ start, end });
+                } else {
+                  setCustomRange({});
+                }
+              }}
+            />
           </div>
+
+          {/* Report Modal */}
+          {showReport && status && (
+            <ReportModal
+              onClose={() => setShowReport(false)}
+              meta={{
+                deviceId: selectedDevice,
+                deviceType: "brake-binding",
+                trainNo: status.context?.Train_no,
+                coachNo: status.context?.coach_no,
+                division: status.context?.location,
+                zone: undefined,
+                generatedBy: user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : user?.email,
+              }}
+              brakeHistory={historyAccum}
+            />
+          )}
         </>
       ) : (
         <div className="text-center py-20 text-slate-400 text-sm bg-white rounded-3xl border border-dashed border-slate-200">
