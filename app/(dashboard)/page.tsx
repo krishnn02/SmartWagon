@@ -10,6 +10,7 @@ import type {
   CoachByLocationItem,
 } from "@/types/pneumatic";
 import { MASTER_DEVICES } from "@/lib/railway-metadata";
+import { fetchPneumaticTelemetryFromSupabase } from "@/lib/pneumatic-supabase";
 import { DeviceSelector } from "@/components/brake-binding/device-selector";
 import { StatusCard } from "@/components/brake-binding/status-card";
 import { PneumaticGauge } from "@/components/brake-binding/pneumatic-gauge";
@@ -20,7 +21,7 @@ import { ActiveFaults } from "@/components/brake-binding/active-faults";
 import { Loader2, RefreshCw, Thermometer, Lock } from "lucide-react";
 import Link from "next/link";
 
-// Fallback master devices for division assignment when API is unreachable
+// Fallback master devices for division assignment matching production hardware
 const FALLBACK_BRAKE_DEVICES: CoachByLocationItem[] = MASTER_DEVICES.filter(
   (d) => d.category === "brake-binding"
 ).map((d, i) => ({
@@ -102,7 +103,7 @@ export default function BrakeBindingPage() {
     coachesData?.data?.[0]?.device_id ||
     "";
 
-  // Fetch pneumatic status for selected device (with timezone cleaning and offline fallback)
+  // Fetch pneumatic status for selected device from Supabase & API
   const {
     data: statusData,
     isLoading: statusLoading,
@@ -110,10 +111,11 @@ export default function BrakeBindingPage() {
   } = useQuery<PneumaticStatusResponse>({
     queryKey: ["pneumatic-status", selectedDevice],
     queryFn: async () => {
-      // Clean incorrect UTC timestamps specifically from this API (commit 385f884)
+      // Clean incorrect UTC timestamps specifically from API (commit 385f884)
       const cleanTs = (ts?: string) =>
         ts ? ts.replace("+00:00", "").replace("Z", "") : "";
 
+      // 1. Try remote API first if valid
       try {
         const data = await apiGet<PneumaticStatusResponse>(
           "/pneumatic/status",
@@ -134,80 +136,12 @@ export default function BrakeBindingPage() {
           return data;
         }
       } catch {
-        // Fallback for console / offline devices
+        // Fallback to Supabase live data
       }
 
-      // If remote API is unreachable or device is managed locally in User Console
+      // 2. Fetch live data for this specific device from Supabase
       const matchedDev = allDevices.find((d) => d.device_id === selectedDevice);
-      const now = new Date();
-      const pad = (n: number) => n.toString().padStart(2, "0");
-      const formatTs = (d: Date) =>
-        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-
-      return {
-        success: true,
-        state: "Normal",
-        brakeStatus: "RELEASED",
-        lastUpdated: formatTs(now),
-        context: {
-          deviceId: selectedDevice,
-          coach_no: matchedDev?.coach_no || selectedDevice,
-          Train_no: matchedDev?.Train_no || "12955",
-          technical_id: matchedDev?.technical_id || selectedDevice,
-          location: matchedDev?.Location || "JP",
-        },
-        alerts: {
-          binding_residual: "green",
-          binding_severe: "green",
-          leakage: "green",
-          cr_overcharge: "green",
-          dv_defect: "green",
-          emergency: "green",
-        },
-        readings: {
-          bp: 5.0,
-          fp: 6.0,
-          bc: 0.0,
-          cr: 5.0,
-          dropRate: "0.01 kg/cm²/min",
-          brakeDuration: 0,
-          appliedTime: 0,
-          releasedTime: 120,
-        },
-        recentEvents: [
-          {
-            id: 1,
-            time: formatTs(new Date(now.getTime() - 5 * 60000)),
-            status: "Brake Release",
-            coach: matchedDev?.coach_no || selectedDevice,
-            bp: 5.0,
-            bc: 0.0,
-            reason: "Normal operating cycle completed without binding",
-          },
-        ],
-        activeFaults: [],
-        history: {
-          limit: 20,
-          data: Array.from({ length: 15 }).map((_, idx) => {
-            const time = new Date(now.getTime() - (15 - idx) * 60000);
-            return {
-              timestamp: formatTs(time),
-              device_id: selectedDevice,
-              location: matchedDev?.Location || "JP",
-              train_no: matchedDev?.Train_no || "12955",
-              coach_no: matchedDev?.coach_no || selectedDevice,
-              bp: Number((5.0 + Math.sin(idx * 0.5) * 0.05).toFixed(2)),
-              fp: 6.0,
-              cr: 5.0,
-              bc: 0.0,
-              brake_status: "RELEASED",
-              brake_applied_time: 0,
-              brake_released_time: 120,
-              brake_duration: 0,
-            };
-          }),
-        },
-      };
+      return await fetchPneumaticTelemetryFromSupabase(selectedDevice, matchedDev);
     },
     enabled: !!selectedDevice,
     refetchInterval: 5000,
