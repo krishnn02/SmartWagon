@@ -140,13 +140,8 @@ export function PressureChart({
       });
     }
 
-    // 24h, 48h, 7d, 30d -> DD MMM HH:mm
-    if (
-      curDuration === "24h" ||
-      curDuration === "48h" ||
-      curDuration === "7d" ||
-      curDuration === "30d"
-    ) {
+    // 24h, 48h, 7d -> DD MMM HH:mm
+    if (curDuration === "24h" || curDuration === "48h" || curDuration === "7d") {
       const day = d.toLocaleDateString("en-IN", {
         timeZone: "Asia/Kolkata",
         day: "numeric",
@@ -159,6 +154,15 @@ export function PressureChart({
         hour12: false,
       });
       return `${day} ${time}`;
+    }
+
+    // 30d (Last Month) -> DD MMM (e.g. 15 Aug)
+    if (curDuration === "30d") {
+      return d.toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "numeric",
+        month: "short",
+      });
     }
 
     // 1y, start, or custom multi-month -> DD MMM YYYY
@@ -197,14 +201,17 @@ export function PressureChart({
     });
 
     return sorted.map((row) => {
-      let timelineColor = "#1e293b"; // Idle
-      let timelineStatus = "Idle";
-      if (row.bc > 0.4) {
+      let timelineColor = "#059669"; // Default Released
+      let timelineStatus = "Released";
+      if (row.bc > 0.4 || row.brake_status === "APPLIED") {
         timelineColor = "#dc2626"; // Applied
         timelineStatus = "Applied";
-      } else if (row.bc > 0.1) {
+      } else if (row.brake_status === "RELEASED" || row.bc <= 0.4) {
         timelineColor = "#059669"; // Released
         timelineStatus = "Released";
+      } else {
+        timelineColor = "#64748b"; // Idle
+        timelineStatus = "Idle";
       }
 
       return {
@@ -594,8 +601,8 @@ export function PressureChart({
                 <Area
                   type="stepAfter"
                   dataKey={(row) => {
-                    if (row.bc > 0.4) return 2;
-                    if (row.bc > 0.1) return 1;
+                    if (row.bc > 0.4 || row.brake_status === "APPLIED") return 2;
+                    if (row.brake_status === "RELEASED" || row.bc <= 0.4) return 1;
                     return 0;
                   }}
                   stroke="#334155"
