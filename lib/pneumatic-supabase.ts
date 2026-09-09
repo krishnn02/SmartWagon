@@ -181,15 +181,16 @@ export async function fetchPneumaticTelemetryFromSupabase(
   let liveEvents: PneumaticEvent[] = [];
   let activeDbFault: string | null = null;
 
-  try {
-    const isNagpurOrRaspberry =
-      deviceId.includes("Raspberry") ||
-      deviceId.includes("NP") ||
-      deviceId.includes("NGP") ||
-      matchedDev?.Location?.includes("Nagpur") ||
-      matchedDev?.Location === "NGP";
+  const isNagpurOrRaspberry =
+    deviceId.includes("Raspberry") ||
+    deviceId.includes("NP") ||
+    deviceId.includes("NGP") ||
+    matchedDev?.Location?.includes("Nagpur") ||
+    matchedDev?.Location === "NGP";
 
-    const queryDev = isNagpurOrRaspberry ? "Raspberry4_7" : deviceId;
+  if (isNagpurOrRaspberry) {
+    try {
+      const queryDev = "Raspberry4_7";
 
     const [faultsRes, eventsRes] = await Promise.all([
       supabase
@@ -231,6 +232,7 @@ export async function fetchPneumaticTelemetryFromSupabase(
     }
   } catch (err) {
     console.warn("event queries skipped:", err);
+  }
   }
 
   // 4. Device Physical Profile & Baseline Determination

@@ -1,8 +1,18 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.vaspsystemic.com/smart_coach_api/api";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "https://api.vaspsystemic.com/smart_coach_api/api").trim();
 
-function getToken(): string | null {
+export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("smart_coach_token");
+}
+
+export function isLocalToken(token?: string | null): boolean {
+  if (!token) return false;
+  return (
+    token.startsWith("jwt-sc-") ||
+    token.startsWith("mock-") ||
+    token.startsWith("impersonate-") ||
+    token.startsWith("admin-")
+  );
 }
 
 export function setAuth(token: string, user: Record<string, unknown>) {
@@ -33,6 +43,11 @@ export async function apiGet<T = unknown>(path: string, params?: Record<string, 
   const token = getToken();
   if (!token) throw new Error("Not authenticated");
 
+  // Local simulated accounts do not exist on the remote backend; avoid doomed 401 network requests
+  if (isLocalToken(token)) {
+    throw new Error("Local simulated session: remote API bypassed");
+  }
+
   const url = new URL(`${API_BASE}${path}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
@@ -61,6 +76,10 @@ export async function apiGet<T = unknown>(path: string, params?: Record<string, 
 
 export async function apiPost<T = unknown>(path: string, body: unknown): Promise<T> {
   const token = getToken();
+  if (isLocalToken(token)) {
+    throw new Error("Local simulated session: remote API bypassed");
+  }
+
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
 

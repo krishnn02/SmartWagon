@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 import { AlertCircle } from "lucide-react";
 
@@ -58,62 +58,61 @@ export function HotAxleChartView() {
         </div>
       </div>
 
-      <div className="h-[300px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="colorMaxTemp" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis 
-              dataKey="time" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fontSize: 10, fill: '#94a3b8' }} 
-              dy={10}
-            />
-            <YAxis 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fontSize: 10, fill: '#94a3b8' }}
-              domain={[0, 120]}
-            />
-            <Tooltip
-              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-              itemStyle={{ fontSize: '12px', fontWeight: 600 }}
-              labelStyle={{ fontSize: '10px', color: '#64748b', marginBottom: '4px' }}
-            />
-            <Legend 
-              content={() => (
-                <div className="flex justify-center gap-4 text-[11px] font-medium pt-5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Critical Temp (&gt;90°C)
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Warning Temp (80-90°C)
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Normal Temp (&lt;80°C)
-                  </div>
+      {/* Explicit pixel height avoids ResizeObserver first-render -1 warning */}
+      <ResponsiveContainer width="100%" height={300}>
+        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="colorMaxTemp" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+          <XAxis 
+            dataKey="time" 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fontSize: 10, fill: '#94a3b8' }} 
+            dy={10}
+          />
+          <YAxis 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fontSize: 10, fill: '#94a3b8' }} 
+            domain={[0, 120]}
+          />
+          <Tooltip
+            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+            itemStyle={{ fontSize: '12px', fontWeight: 600 }}
+            labelStyle={{ fontSize: '10px', color: '#64748b', marginBottom: '4px' }}
+          />
+          <Legend 
+            content={() => (
+              <div className="flex justify-center gap-4 text-[11px] font-medium pt-5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Critical Temp (&gt;90°C)
                 </div>
-              )}
-            />
-            
-            <Area 
-              type="monotone" 
-              dataKey="Max Temp" 
-              stroke="#3b82f6" 
-              strokeWidth={2}
-              fillOpacity={1} 
-              fill="url(#colorMaxTemp)" 
-              activeDot={{ r: 6, strokeWidth: 0, fill: '#3b82f6' }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Warning Temp (80-90°C)
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Normal Temp (&lt;80°C)
+                </div>
+              </div>
+            )}
+          />
+          
+          <Area 
+            type="monotone" 
+            dataKey="Max Temp" 
+            stroke="#3b82f6" 
+            strokeWidth={2} 
+            fillOpacity={1} 
+            fill="url(#colorMaxTemp)" 
+            activeDot={{ r: 6, strokeWidth: 0, fill: '#3b82f6' }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
 
       <div className="mt-6 flex items-start gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
         <AlertCircle className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />

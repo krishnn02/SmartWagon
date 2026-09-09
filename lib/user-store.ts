@@ -217,6 +217,32 @@ export function recordUserLogin(email: string): void {
   }
 }
 
+export function recordUserLogout(email: string): void {
+  const users = getUsers();
+  const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+
+  if (user) {
+    user.status = "offline";
+    saveUsers(users);
+  }
+
+  // Also update active sessions list
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(SESSIONS_KEY);
+      if (raw) {
+        const sessions = JSON.parse(raw) as ActiveSessionRecord[];
+        const updated = sessions.map((s) =>
+          s.email.toLowerCase() === email.toLowerCase() ? { ...s, status: "offline" } : s
+        );
+        localStorage.setItem(SESSIONS_KEY, JSON.stringify(updated));
+      }
+    } catch {
+      // Ignore session log error
+    }
+  }
+}
+
 export interface ActiveSessionRecord {
   email: string;
   name: string;

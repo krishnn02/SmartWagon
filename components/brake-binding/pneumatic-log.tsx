@@ -39,7 +39,6 @@ export function PneumaticLog({ history, onShowAll }: PneumaticLogProps) {
       ) : (
         <div className="space-y-2">
           {recent.map((row, i) => {
-            console.log("DEBUG_TIMESTAMP", row.timestamp);
             let derivedStatus = "IDLE";
             if (row.bc > 0.4) derivedStatus = "APPLIED";
             else if (row.bc > 0.1) derivedStatus = "RELEASED";

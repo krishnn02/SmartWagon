@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { setAuth, clearAuth, getStoredUser } from "@/lib/api";
-import { getUserByEmail, recordUserLogin, type UserConsoleProfile } from "@/lib/user-store";
+import { getUserByEmail, recordUserLogin, recordUserLogout, type UserConsoleProfile } from "@/lib/user-store";
+import { resetAppQueries } from "@/components/providers";
 
 export interface AuthUser {
   user_id: number | string;
@@ -186,12 +187,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token, login]);
 
   const logout = useCallback(() => {
+    if (user?.email) {
+      recordUserLogout(user.email);
+    }
+    resetAppQueries();
     localStorage.removeItem(IMPERSONATE_BACKUP_KEY);
     clearAuth();
     setToken(null);
     setUser(null);
     window.location.href = "/login";
-  }, []);
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, logout, impersonateUser, exitImpersonation }}>

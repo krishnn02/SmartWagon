@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Bell, Loader2, Sparkles, Train, Lock, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,9 +14,14 @@ import type { CoachHams, HamsData, MappedCoachData, AxleReading } from "@/types/
 import { HotAxleFilters } from "@/components/hot-axle/hot-axle-filters";
 import { HotAxleCard } from "@/components/hot-axle/hot-axle-card";
 import { HotAxleModal } from "@/components/hot-axle/hot-axle-modal";
-import { HotAxleChartView } from "@/components/hot-axle/hot-axle-chart-view";
 import { HotAxleAlertsView } from "@/components/hot-axle/hot-axle-alerts-view";
 import { AxleDigitalTwin } from "@/components/hot-axle/axle-digital-twin";
+
+// Load chart view client-side only to prevent Recharts SSR width/height(-1) warnings
+const HotAxleChartView = dynamic(
+  () => import("@/components/hot-axle/hot-axle-chart-view").then((m) => ({ default: m.HotAxleChartView })),
+  { ssr: false, loading: () => <div className="h-[300px] bg-slate-50 rounded-2xl animate-pulse" /> }
+);
 
 type ViewType = "Coaches" | "Axle Twin" | "Chart" | "Alerts";
 
@@ -40,7 +46,8 @@ export default function HotAxlePage() {
       const { data, error } = await query;
       if (error) throw error;
       return data as CoachHams[];
-    }
+    },
+    enabled: !!user,
   });
 
   const ALL_HAMS_SENSORS = [
@@ -92,7 +99,8 @@ export default function HotAxlePage() {
         (a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
       );
     },
-    refetchInterval: 30000, // Refetch every 30s
+    enabled: !!user,
+    refetchInterval: user ? 30000 : false,
   });
 
   const isAdmin =

@@ -6,8 +6,8 @@ import { useAuth } from "@/lib/auth";
 import { TrainFront, Eye, EyeOff, Loader2, AlertCircle, Shield, Key } from "lucide-react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("admin@vasp.com");
-  const [password, setPassword] = useState("Happy123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -28,12 +28,6 @@ export default function LoginPage() {
     }
   }
 
-  const fillCredentials = (em: string, pw: string) => {
-    setEmail(em);
-    setPassword(pw);
-    setError("");
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 px-4 py-8">
       <div className="w-full max-w-md">
@@ -43,7 +37,6 @@ export default function LoginPage() {
             <TrainFront className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight">Smart Coach</h1>
-          <p className="text-xs text-blue-200/70 mt-0.5">Railway Telemetry & Dynamic Console</p>
         </div>
 
         {/* Login Card */}
@@ -113,53 +106,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Access Buttons */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-              Quick Role-Based Credentials:
-            </span>
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <button
-                type="button"
-                onClick={() => fillCredentials("admin@vasp.com", "Happy123")}
-                className="p-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-left transition-colors"
-              >
-                <div className="font-bold text-purple-900 flex items-center gap-1">
-                  <Shield className="h-3 w-3" />
-                  <span>Admin</span>
-                </div>
-                <div className="text-[10px] text-purple-700 font-mono truncate">admin@vasp.com</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials("sse.howrah@railnet.gov.in", "Rail@123")}
-                className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-left transition-colors"
-              >
-                <div className="font-bold text-blue-900 truncate">Howrah Supervisor</div>
-                <div className="text-[10px] text-blue-700 font-mono truncate">sse.howrah@...</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials("den.jaipur@railnet.gov.in", "Rail@123")}
-                className="p-2 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-left transition-colors"
-              >
-                <div className="font-bold text-sky-900 truncate">Jaipur Engineer</div>
-                <div className="text-[10px] text-sky-700 font-mono truncate">den.jaipur@...</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials("axle.nagpur@railnet.gov.in", "Rail@123")}
-                className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-left transition-colors"
-              >
-                <div className="font-bold text-amber-900 truncate">Nagpur Axle Depot</div>
-                <div className="text-[10px] text-amber-700 font-mono truncate">axle.nagpur@...</div>
-              </button>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-slate-400 text-[11px] mt-6 font-medium">

@@ -59,6 +59,7 @@ export default function BrakeBindingPage() {
       }
       return { success: true, count: FALLBACK_BRAKE_DEVICES.length, data: FALLBACK_BRAKE_DEVICES };
     },
+    enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -151,7 +152,7 @@ export default function BrakeBindingPage() {
         customRange.end
       );
     },
-    enabled: !!selectedDevice,
+    enabled: !!user && !!selectedDevice,
     refetchInterval: duration === "1m" || duration === "15m" ? 5000 : 30000,
     retry: 1,
   });
