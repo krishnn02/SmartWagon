@@ -1,35 +1,50 @@
 "use client";
 
-import { AlertTriangle, Clock, MapPin, Gauge } from "lucide-react";
-import { cn, parseAndFormatIST } from "@/lib/utils";
-import type { MappedCoachData } from "@/types/hot-axle";
+import { AlertTriangle, Clock, MapPin, Gauge, ShieldAlert } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { MappedCoachData, HamsData } from "@/types/hot-axle";
 
 interface HotAxleAlertsViewProps {
   data: MappedCoachData[];
+  rawHamsData?: HamsData[];
 }
 
-export function HotAxleAlertsView({ data }: HotAxleAlertsViewProps) {
-  // Filter for Warning and Critical only, sort by Critical first, then by maxTemp
-  const alerts = data
-    .filter(d => d.status === "Critical" || d.status === "Warning")
-    .sort((a, b) => {
-      if (a.status === "Critical" && b.status !== "Critical") return -1;
-      if (b.status === "Critical" && a.status !== "Critical") return 1;
-      return b.maxTemp - a.maxTemp;
-    });
+export function HotAxleAlertsView({ data, rawHamsData = [] }: HotAxleAlertsViewProps) {
+  // Find all historical alerts in the raw database data
+  // An alert is any reading > 80 degrees, or explicitly marked Critical/Warning/High
+  const rawAlerts = rawHamsData.filter((reading) => {
+    const temp = reading.temperature || 0;
+    const isTempHigh = temp > 80;
+    const isStatusAlert = 
+      reading.status === "Critical" || 
+      reading.status === "Warning" || 
+      reading.status?.toLowerCase().includes("high");
+    
+    return isTempHigh || isStatusAlert;
+  });
 
-  const criticalCount = alerts.filter(a => a.status === "Critical").length;
-  const warningCount = alerts.filter(a => a.status === "Warning").length;
+  // Sort newest first
+  rawAlerts.sort((a, b) => {
+    const timeA = new Date(a.created_at || a.received_timestamp || 0).getTime();
+    const timeB = new Date(b.created_at || b.received_timestamp || 0).getTime();
+    return timeB - timeA;
+  });
+
+  // Take the top 50 alerts to prevent UI lag
+  const alerts = rawAlerts.slice(0, 50);
+
+  const criticalCount = alerts.filter(a => (a.temperature || 0) > 90 || a.status === "Critical" || a.status?.includes("High")).length;
+  const warningCount = alerts.filter(a => ((a.temperature || 0) > 80 && (a.temperature || 0) <= 90) || a.status === "Warning").length;
 
   if (alerts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border border-slate-100 shadow-sm animate-in fade-in">
         <div className="h-16 w-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-4">
-          <AlertTriangle className="h-8 w-8" />
+          <ShieldAlert className="h-8 w-8" />
         </div>
-        <h3 className="text-sm font-bold text-slate-800">No Alerts</h3>
+        <h3 className="text-sm font-bold text-slate-800">No Historical Alerts</h3>
         <p className="text-xs text-slate-500 mt-1 max-w-xs">
-          All axle temperatures are within normal operating parameters.
+          All axle temperatures in the database are within normal operating parameters.
         </p>
       </div>
     );
@@ -39,7 +54,7 @@ export function HotAxleAlertsView({ data }: HotAxleAlertsViewProps) {
     <div className="space-y-4 animate-in fade-in duration-300">
       {/* Summary Header */}
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-bold text-slate-900">Recent Alerts</h3>
+        <h3 className="text-lg font-bold text-slate-900">Historical Alerts</h3>
         <div className="flex gap-2">
           {criticalCount > 0 && (
             <div className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-[10px] font-bold">
@@ -57,44 +72,40 @@ export function HotAxleAlertsView({ data }: HotAxleAlertsViewProps) {
       {/* Alerts List */}
       <div className="flex flex-col gap-3">
         {alerts.map((alert) => {
-          const isCritical = alert.status === "Critical";
+          const temp = alert.temperature || 0;
+          const isCritical = temp > 90 || alert.status === "Critical" || alert.status?.includes("High");
           
-          // Find the worst axle
-          let worstSlot = "";
-          let worstTemp = 0;
-          let worstReading = null;
-          
-          Object.entries(alert.axleSlots).forEach(([slot, reading]) => {
-            if (reading && reading.temperature > worstTemp) {
-              worstTemp = reading.temperature;
-              worstSlot = slot;
-              worstReading = reading;
-            }
-          });
+          // Match the sensor ID to a coach if possible
+          const parentCoach = data.find(d => 
+             Object.values(d.axleSlots).some(slot => slot.sensorId === alert.device_id) || 
+             d.coach.device_id === alert.master_id
+          );
 
-          // Mocking axle number
-          const axleNum = worstSlot.replace(/[^0-9]/g, '').charAt(0) || "3";
-          const sensorId = `AX-${alert.coach.coach_no || 'C07'}-${worstSlot}`;
+          const coachName = parentCoach?.coach.coach_no || parentCoach?.coach.device_id || "Unknown Coach";
+          const location = parentCoach?.coach.location || "On Route";
           
           // Formatting date
-          let dateStr = "Today, 10:39 AM";
-          if (alert.latestTimestamp) {
-            const d = new Date(alert.latestTimestamp);
-            dateStr = `Today, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+          let dateStr = "Unknown Date";
+          if (alert.created_at || alert.received_timestamp) {
+            const d = new Date(alert.created_at || alert.received_timestamp || 0);
+            dateStr = d.toLocaleString('en-US', { 
+              month: 'short', day: 'numeric', 
+              hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
           }
 
           return (
             <div 
-              key={alert.coach.id}
+              key={alert.id}
               className={cn(
-                "p-4 rounded-xl border flex gap-4 shadow-sm",
-                isCritical ? "bg-red-50/60 border-red-200" : "bg-amber-50/60 border-amber-200"
+                "p-4 rounded-xl border flex gap-4 shadow-sm transition-all hover:shadow-md",
+                isCritical ? "bg-red-50/40 border-red-200" : "bg-amber-50/40 border-amber-200"
               )}
             >
               <div className="shrink-0 mt-0.5">
                 <div className={cn(
                   "w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm",
-                  isCritical ? "text-red-500 shadow-red-500/10" : "text-amber-500 shadow-amber-500/10"
+                  isCritical ? "text-red-600 shadow-red-500/20" : "text-amber-500 shadow-amber-500/20"
                 )}>
                   {isCritical ? <AlertTriangle className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
                 </div>
@@ -102,31 +113,37 @@ export function HotAxleAlertsView({ data }: HotAxleAlertsViewProps) {
               
               <div className="flex-1 space-y-1">
                 <h4 className={cn(
-                  "font-bold text-sm",
+                  "font-bold text-sm flex items-center justify-between",
                   isCritical ? "text-red-700" : "text-amber-700"
                 )}>
-                  {isCritical ? "Critical" : "Warning"}: Axle {axleNum} Overheat (Temp {worstTemp.toFixed(0)}°C)
+                  <span>
+                    {isCritical ? "Critical Overheat" : "Temperature Warning"}: {temp.toFixed(1)}°C
+                  </span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-white/60">
+                    {alert.device_id}
+                  </span>
                 </h4>
                 
                 <p className={cn(
-                  "text-[11px] font-medium",
+                  "text-[11px] font-medium flex items-center gap-1.5",
                   isCritical ? "text-red-600/80" : "text-amber-600/80"
                 )}>
-                  Coach {alert.coach.coach_no || alert.coach.device_id} | {dateStr}
+                  <Clock className="h-3 w-3" /> {dateStr}
                 </p>
                 
                 <p className={cn(
-                  "text-[11px] font-medium",
+                  "text-[11px] font-medium flex items-center gap-1.5",
                   isCritical ? "text-red-600/80" : "text-amber-600/80"
                 )}>
-                  Axle {axleNum} | Sensor: {sensorId} | Speed: 72 km/h
+                  <MapPin className="h-3 w-3" /> Coach {coachName} | Location: {location}
                 </p>
                 
                 <p className={cn(
-                  "text-[11px] font-bold pt-0.5",
+                  "text-[11px] font-bold pt-1",
                   isCritical ? "text-red-600" : "text-amber-600"
                 )}>
-                  {isCritical ? "Immediate inspection required" : "Monitor closely"} — Location: {alert.coach.location || "Near Nagda"}
+                  {isCritical ? "⚠ Immediate inspection required!" : "⚠ Monitor closely"} 
+                  {alert.status && ` (System marked: ${alert.status})`}
                 </p>
               </div>
             </div>

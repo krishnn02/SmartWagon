@@ -58,8 +58,8 @@ export default function HotAxlePage() {
 
       // Since hams_data uses HAMS00X for device_id and coaches_hams uses Raspberry4_7,
       // we cannot filter hams_data by coach device_ids directly.
-      // We will just fetch the latest 1000 records overall to get the latest readings for the axles.
-      query = query.limit(1000);
+      // We will just fetch the latest 5000 records overall to get the latest readings for all 8 axles.
+      query = query.limit(5000);
 
       const { data, error } = await query;
 
@@ -133,28 +133,52 @@ export default function HotAxlePage() {
 
       const axleSlots: any = {};
       const slotNames = ['A1-1', 'A1-2', 'A2-1', 'A2-2', 'A3-1', 'A3-2', 'A4-1', 'A4-2'];
+      
+      // Strict mapping of specific HAMS sensors to specific axle slots
+      const sensorToSlotMap: Record<string, string> = {
+        'HAMS001': 'A1-1',
+        'HAMS002': 'A1-2',
+        'HAMS003': 'A2-1',
+        'HAMS004': 'A2-2',
+        'HAMS005': 'A3-1',
+        'HAMS006': 'A3-2',
+        'HAMS007': 'A4-1',
+        'HAMS008': 'A4-2',
+      };
 
-      // Sort the readings by device_id (HAMS001, HAMS002...) so they map consistently to A1-1, A1-2...
-      latestReadings.sort((a, b) => (a.device_id || '').localeCompare(b.device_id || ''));
-
-      // Take up to 8 sensors to map to the 8 slots
-      latestReadings.slice(0, 8).forEach((reading, idx) => {
-        const temp = reading.temperature || 0;
-        if (temp > maxTemp) maxTemp = temp;
-        
-        const isCritical = reading.status === 'Critical' || temp > 90;
-        const isWarning = reading.status === 'Warning' || (temp > 80 && temp <= 90);
-        
-        if (isCritical) hasCritical = true;
-        if (isWarning) hasWarning = true;
-
-        const slot = slotNames[idx] || `Extra-${idx}`;
+      // Pre-initialize all 8 slots with empty data so the UI always renders exactly 8 boxes correctly
+      slotNames.forEach(slot => {
         axleSlots[slot] = {
-          sensorId: reading.device_id || slot,
-          temperature: temp,
-          isCritical,
-          isWarning
+          sensorId: null,
+          temperature: 0,
+          isCritical: false,
+          isWarning: false
         };
+      });
+
+      // Map the available latest readings into their exact designated slots
+      latestReadings.forEach((reading) => {
+        const deviceId = reading.device_id || '';
+        const slot = sensorToSlotMap[deviceId];
+        
+        // Only assign if it's one of the known sensors mapped to a slot
+        if (slot) {
+          const temp = reading.temperature || 0;
+          if (temp > maxTemp) maxTemp = temp;
+          
+          const isCritical = reading.status === 'Critical' || temp > 90;
+          const isWarning = reading.status === 'Warning' || (temp > 80 && temp <= 90);
+          
+          if (isCritical) hasCritical = true;
+          if (isWarning) hasWarning = true;
+
+          axleSlots[slot] = {
+            sensorId: deviceId,
+            temperature: temp,
+            isCritical,
+            isWarning
+          };
+        }
       });
 
       let status: 'Good' | 'Warning' | 'Critical' = 'Good';
@@ -216,9 +240,10 @@ export default function HotAxlePage() {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        {/* Left Column (Filters & Actions) */}
-        <div className="lg:col-span-1 xl:col-span-1 space-y-4">
+      {/* Top Controls Row */}
+      <div className="flex flex-col xl:flex-row gap-4 mb-6">
+        {/* Filters */}
+        <div className="flex-grow">
           <HotAxleFilters 
             trainOptions={trainOptions}
             coachTypeOptions={coachTypeOptions}
@@ -227,52 +252,53 @@ export default function HotAxlePage() {
             setFilters={setFilters}
             onClearFilters={onClearFilters}
           />
+        </div>
 
+        {/* Quick Actions & View Type */}
+        <div className="flex flex-col sm:flex-row gap-4 shrink-0">
           {/* Quick Actions */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-            <h3 className="text-sm font-bold text-slate-800 mb-3">Quick Actions</h3>
-            <div className="flex items-center gap-2">
-              <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors">
-                <Bell className="h-3.5 w-3.5" /> Send Alerts
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col justify-between w-full sm:w-auto">
+            <h3 className="text-[10px] font-bold text-slate-500 mb-3 block uppercase tracking-wider">Quick Actions</h3>
+            <div className="flex items-center gap-2 h-full">
+              <button className="bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-colors whitespace-nowrap">
+                <Bell className="h-3.5 w-3.5" /> Notify
               </button>
-              <button className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> Generate Report
-              </button>
-              <button className="bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 p-2 rounded-xl shadow-sm transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              <button className="bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-colors whitespace-nowrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> Report
               </button>
             </div>
           </div>
 
           {/* View Type */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sticky top-4">
-            <h3 className="text-sm font-bold text-slate-800 mb-3">View Type</h3>
-            <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row gap-2">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col justify-between w-full sm:w-auto">
+            <h3 className="text-[10px] font-bold text-slate-500 mb-3 block uppercase tracking-wider">View Type</h3>
+            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200 h-full">
               {(["Coaches", "Chart View", "Alerts"] as const).map((v) => (
                 <button
                   key={v}
                   onClick={() => setViewType(v === "Chart View" ? "Chart" : v === "Alerts" ? "Alerts" : "Coaches")}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-xl transition-all border",
+                    "flex-1 flex items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-lg transition-all border",
                     (viewType === "Coaches" && v === "Coaches") || 
                     (viewType === "Chart" && v === "Chart View") || 
                     (viewType === "Alerts" && v === "Alerts")
-                      ? "bg-blue-500 text-white border-blue-600 shadow-sm"
-                      : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                      ? "bg-white text-blue-600 shadow-sm border-slate-200/60"
+                      : "text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-100"
                   )}
                 >
                   {v === "Coaches" && <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2c-3.3 0-6 2.7-6 6 0 4.2 6 12 6 12s6-7.8 6-12c0-3.3-2.7-6-6-6Zm0 8.5c-1.4 0-2.5-1.1-2.5-2.5S10.6 5.5 12 5.5s2.5 1.1 2.5 2.5S13.4 10.5 12 10.5Z"/></svg>}
                   {v === "Chart View" && <LineChart className="h-3.5 w-3.5" />}
                   {v === "Alerts" && <Bell className="h-3.5 w-3.5" />}
-                  {v}
+                  <span className="hidden sm:inline">{v}</span>
                 </button>
               ))}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Right Column (Content) */}
-        <div className="lg:col-span-3 xl:col-span-4 min-w-0">
+      {/* Content Area */}
+      <div className="w-full">
           {(isLoadingCoaches || isLoadingData) ? (
             <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400">
               <Loader2 className="h-8 w-8 animate-spin mb-4 text-blue-500" />
@@ -289,7 +315,7 @@ export default function HotAxlePage() {
                       {filteredData.length} Coaches
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
                     {filteredData.length > 0 ? (
                       filteredData.map((data) => (
                         <HotAxleCard 
@@ -312,12 +338,11 @@ export default function HotAxlePage() {
               )}
 
               {viewType === "Alerts" && (
-                <HotAxleAlertsView data={mappedData} />
+                <HotAxleAlertsView data={mappedData} rawHamsData={rawHamsData} />
               )}
             </>
           )}
         </div>
-      </div>
 
       {selectedDevice && (
         <HotAxleModal 
