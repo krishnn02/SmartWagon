@@ -17,10 +17,10 @@ import { PressureChart } from "@/components/brake-binding/pressure-chart";
 import { DiagnosticFlags } from "@/components/brake-binding/diagnostic-flags";
 import { PneumaticLog } from "@/components/brake-binding/pneumatic-log";
 import { ActiveFaults } from "@/components/brake-binding/active-faults";
-import { Loader2, RefreshCw, Thermometer, ShieldAlert, Lock } from "lucide-react";
+import { Loader2, RefreshCw, Thermometer, Lock } from "lucide-react";
 import Link from "next/link";
 
-// Fallback master devices matching production hardware from user screenshot
+// Fallback master devices for division assignment when API is unreachable
 const FALLBACK_BRAKE_DEVICES: CoachByLocationItem[] = MASTER_DEVICES.filter(
   (d) => d.category === "brake-binding"
 ).map((d, i) => ({
@@ -44,14 +44,14 @@ export default function BrakeBindingPage() {
   const hasModuleAccess =
     isAdmin || user?.allowedModules?.includes("brake-binding");
 
-  // Fetch remote devices list
+  // Fetch devices list from remote API
   const { data: coachesData, isLoading: coachesLoading } = useQuery<CoachByLocationResponse>({
     queryKey: ["coaches-by-location"],
     queryFn: () => apiGet("/pneumatic/coaches-by-location"),
     staleTime: 5 * 60 * 1000,
   });
 
-  // Base list from API merged or falling back to master list
+  // Base list from API merged or falling back to master list if empty
   const allDevices = useMemo(() => {
     if (coachesData?.data && coachesData.data.length > 0) {
       return coachesData.data;
@@ -88,11 +88,15 @@ export default function BrakeBindingPage() {
     }
   }, [filteredDevices, userSelectedDevice]);
 
-  const selectedDevice = userSelectedDevice || filteredDevices[0]?.device_id || "";
+  const selectedDevice =
+    userSelectedDevice ||
+    filteredDevices[0]?.device_id ||
+    coachesData?.data?.[0]?.device_id ||
+    "";
 
-  // Fetch pneumatic status for selected device
+  // Fetch pneumatic status for selected device (with timezone cleaning from commit 385f884)
   const {
-    data: remoteStatusData,
+    data: statusData,
     isLoading: statusLoading,
     refetch,
   } = useQuery<PneumaticStatusResponse>({
@@ -103,7 +107,7 @@ export default function BrakeBindingPage() {
         selectedDevice ? { deviceId: selectedDevice } : undefined
       );
 
-      // Clean incorrect UTC timestamps specifically from this API
+      // Clean incorrect UTC timestamps specifically from this API (commit 385f884)
       const cleanTs = (ts?: string) =>
         ts ? ts.replace("+00:00", "").replace("Z", "") : "";
 
@@ -115,93 +119,32 @@ export default function BrakeBindingPage() {
         if (data.history?.data) {
           data.history.data.forEach((h) => (h.timestamp = cleanTs(h.timestamp)));
         }
+        if (data.recentEvents) {
+          data.recentEvents.forEach((e) => (e.time = cleanTs(e.time)));
+        }
       }
 
       return data;
     },
     enabled: !!selectedDevice,
     refetchInterval: 5000,
-    retry: 1,
   });
 
-  // Simulated status fallback if remote API is offline or returns error
-  const status: PneumaticStatusResponse | null = useMemo(() => {
-    if (remoteStatusData && remoteStatusData.success) {
-      return remoteStatusData;
-    }
-
-    if (!selectedDevice) return null;
-
-    const matchedDev = allDevices.find((d) => d.device_id === selectedDevice);
-
-    return {
-      success: true,
-      state: "NORMAL",
-      brakeStatus: "RELEASED",
-      lastUpdated: new Date().toLocaleTimeString(),
-      context: {
-        deviceId: selectedDevice,
-        coach_no: matchedDev?.coach_no || "LWSCZAC",
-        Train_no: matchedDev?.Train_no || "12301",
-        technical_id: matchedDev?.technical_id || selectedDevice,
-        location: matchedDev?.Location || "HOWRAH",
-      },
-      alerts: {
-        binding_residual: "green",
-        binding_severe: "green",
-        leakage: "green",
-        cr_overcharge: "green",
-        dv_defect: "green",
-        emergency: "green",
-      },
-      readings: {
-        bp: 5.0,
-        fp: 6.0,
-        bc: 0.0,
-        cr: 5.0,
-        dropRate: "0.01 kg/cm²/min",
-        brakeDuration: 0,
-        appliedTime: 0,
-        releasedTime: 120,
-      },
-      recentEvents: [
-        {
-          id: 1,
-          time: new Date(Date.now() - 5 * 60000).toLocaleTimeString(),
-          status: "Brake Release",
-          coach: matchedDev?.coach_no || "LWSCZAC",
-          bp: 5.0,
-          bc: 0.0,
-          reason: "Normal operating cycle completed without binding",
-        },
-      ],
-      activeFaults: [],
-      history: {
-        limit: 20,
-        data: Array.from({ length: 15 }).map((_, idx) => ({
-          timestamp: new Date(Date.now() - (15 - idx) * 60000).toLocaleTimeString(),
-          device_id: selectedDevice,
-          location: matchedDev?.Location || "DIV",
-          train_no: matchedDev?.Train_no || "12301",
-          coach_no: matchedDev?.coach_no || "LWSCZAC",
-          bp: Number((5.0 + Math.sin(idx * 0.5) * 0.05).toFixed(2)),
-          fp: 6.0,
-          cr: 5.0,
-          bc: 0.0,
-          brake_status: "RELEASED",
-          brake_applied_time: 0,
-          brake_released_time: 120,
-          brake_duration: 0,
-        })),
-      },
-    };
-  }, [remoteStatusData, selectedDevice, allDevices]);
-
-  // History for charts
+  // History for charts with deduplication from commit 385f884 & 7a9c43a
   const historyAccum = useMemo(() => {
-    if (!status?.history?.data) return [];
-    return status.history.data;
-  }, [status]);
+    if (!statusData?.history?.data) return [];
+    const incoming = statusData.history.data;
+    const seen = new Set<string>();
+    return incoming.filter((row) => {
+      const key = `${row.timestamp}-${row.device_id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [statusData?.history?.data]);
+
+  const devices = filteredDevices.length > 0 ? filteredDevices : (coachesData?.data || []);
+  const status = statusData;
 
   // If user does not have permission for Brake Binding
   if (!hasModuleAccess) {
@@ -233,7 +176,7 @@ export default function BrakeBindingPage() {
     <div className="space-y-5">
       {/* Device Selector with Role-Based Scope */}
       <DeviceSelector
-        devices={filteredDevices}
+        devices={devices}
         selectedId={selectedDevice}
         onSelect={(d) => setUserSelectedDevice(d.device_id)}
         loading={coachesLoading}
@@ -340,7 +283,7 @@ export default function BrakeBindingPage() {
         </>
       ) : (
         <div className="text-center py-20 text-slate-400 text-sm bg-white rounded-3xl border border-dashed border-slate-200">
-          No monitoring device selected or permitted for your division.
+          Select a device to view pneumatic data
         </div>
       )}
     </div>
