@@ -51,13 +51,9 @@ export default function HotAxlePage() {
   const { data: rawHamsData = [], isLoading: isLoadingData } = useQuery({
     queryKey: ['hams_data', coaches.map(c => c.device_id).join(',')],
     queryFn: async () => {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      
       let query = supabase
         .from('hams_data')
         .select('*')
-        .gte('created_at', yesterday.toISOString())
         .order('created_at', { ascending: false });
 
       // If we have specific coaches, filter by them. Otherwise, just fetch recent rows.
@@ -81,54 +77,61 @@ export default function HotAxlePage() {
 
   // Process data
   const mappedData = useMemo(() => {
-    let activeCoaches = [...coaches];
-    let activeRawData = [...rawHamsData];
-
     const result: MappedCoachData[] = [];
+    const activeCoaches = [...coaches];
 
-    // Find all unique device_ids in activeRawData
-    const allDeviceIds = Array.from(new Set(activeRawData.map(d => d.device_id).filter(Boolean))) as string[];
-
-    // Ensure every device_id in hams_data has a corresponding coach record
-    allDeviceIds.forEach(deviceId => {
-      if (!activeCoaches.find(c => c.device_id === deviceId)) {
-        activeCoaches.push({
-          id: Math.random(),
-          technical_id: `TECH-${deviceId}`,
-          coach_no: `COACH-${deviceId}`,
-          device_id: deviceId,
-          train_no: 'Unknown',
-          location: 'Unknown',
-          actual_id: deviceId
-        });
-      }
-    });
+    // If no coaches exist, but we have hams_data, generate a single fallback coach
+    if (activeCoaches.length === 0 && rawHamsData.length > 0) {
+      activeCoaches.push({
+        id: 1,
+        technical_id: `TECH-MASTER`,
+        coach_no: `COACH-MAIN`,
+        device_id: 'Raspberry_Fallback',
+        train_no: 'Unknown',
+        location: 'Unknown',
+        actual_id: 'Raspberry_Fallback'
+      });
+    }
 
     for (const coach of activeCoaches) {
-      if (!coach.device_id) continue;
-
-      // Get readings for this coach
-      const coachReadings = activeRawData.filter(d => d.device_id === coach.device_id);
+      // In this specific system, the hams_data records have device_id like HAMS001-HAMS009
+      // which actually represent the individual axle sensors, while the coach is the master Raspberry Pi.
+      // So, for a coach, we want to find the latest reading for EACH unique sensor.
+      // If we have multiple coaches later, we'd filter by master_id. For now, we take all relevant readings.
       
-      // Get the most recent timestamp to group by
+      let coachReadings = rawHamsData;
+      
+      // If there's a clear link like master_id matching the coach device_id, filter it:
+      // (But since Raspberry4_7 doesn't match HAMS-M1-001 exactly, we'll assign all readings to this coach if it's the only one)
+      if (activeCoaches.length > 1 && coach.device_id) {
+         // Naive match if multiple coaches
+         coachReadings = rawHamsData.filter(d => d.master_id?.includes(coach.device_id || '') || d.device_id === coach.device_id);
+      }
+
       if (coachReadings.length === 0) {
-        // Only push if it was an original coach
-        if (coaches.find(c => c.id === coach.id)) {
-          result.push({
-            coach,
-            readings: [],
-            maxTemp: 0,
-            status: 'Good',
-            axleSlots: {},
-            latestTimestamp: null
-          });
-        }
+        result.push({
+          coach,
+          readings: [],
+          maxTemp: 0,
+          status: 'Good',
+          axleSlots: {},
+          latestTimestamp: null
+        });
         continue;
       }
 
-      const latestTimestamp = coachReadings[0].created_at || coachReadings[0].received_timestamp;
+      // We need the LATEST reading for EACH distinct sensor (HAMS001 to HAMS008)
+      const latestReadingsBySensor = new Map<string, HamsData>();
       
-      const latest8 = coachReadings.slice(0, 8);
+      // Since rawHamsData is ordered by created_at DESC, the first time we see a device_id, it's the latest
+      for (const reading of coachReadings) {
+        if (reading.device_id && !latestReadingsBySensor.has(reading.device_id)) {
+          latestReadingsBySensor.set(reading.device_id, reading);
+        }
+      }
+
+      const latestReadings = Array.from(latestReadingsBySensor.values());
+      const latestTimestamp = latestReadings[0]?.created_at || latestReadings[0]?.received_timestamp || null;
       
       let maxTemp = 0;
       let hasCritical = false;
@@ -137,7 +140,11 @@ export default function HotAxlePage() {
       const axleSlots: any = {};
       const slotNames = ['A1-1', 'A1-2', 'A2-1', 'A2-2', 'A3-1', 'A3-2', 'A4-1', 'A4-2'];
 
-      latest8.forEach((reading, idx) => {
+      // Sort the readings by device_id (HAMS001, HAMS002...) so they map consistently to A1-1, A1-2...
+      latestReadings.sort((a, b) => (a.device_id || '').localeCompare(b.device_id || ''));
+
+      // Take up to 8 sensors to map to the 8 slots
+      latestReadings.slice(0, 8).forEach((reading, idx) => {
         const temp = reading.temperature || 0;
         if (temp > maxTemp) maxTemp = temp;
         
@@ -149,7 +156,7 @@ export default function HotAxlePage() {
 
         const slot = slotNames[idx] || `Extra-${idx}`;
         axleSlots[slot] = {
-          sensorId: slot,
+          sensorId: reading.device_id || slot,
           temperature: temp,
           isCritical,
           isWarning
