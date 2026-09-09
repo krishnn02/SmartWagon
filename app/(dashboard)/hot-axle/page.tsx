@@ -56,16 +56,10 @@ export default function HotAxlePage() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // If we have specific coaches, filter by them. Otherwise, just fetch recent rows.
-      if (coaches.length > 0) {
-        const deviceIds = coaches.map(c => c.device_id).filter(Boolean);
-        if (deviceIds.length > 0) {
-          query = query.in('device_id', deviceIds);
-        }
-      } else {
-        // Limit to 1000 so we don't fetch everything if coaches is empty
-        query = query.limit(1000);
-      }
+      // Since hams_data uses HAMS00X for device_id and coaches_hams uses Raspberry4_7,
+      // we cannot filter hams_data by coach device_ids directly.
+      // We will just fetch the latest 1000 records overall to get the latest readings for the axles.
+      query = query.limit(1000);
 
       const { data, error } = await query;
 
