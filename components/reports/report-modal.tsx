@@ -3,12 +3,14 @@
 import { useState, useMemo, useCallback } from "react";
 import {
   X, Printer, FileDown, Calendar, ChevronDown, SlidersHorizontal,
-  Train, Cpu, MapPin, User, Clock, CheckCircle2
+  Train, Cpu, MapPin, User, Clock, CheckCircle2, Loader2, AlertCircle
 } from "lucide-react";
 import { cn, parseAndFormatIST } from "@/lib/utils";
 import type { PneumaticHistoryRow } from "@/types/pneumatic";
 import type { HamsData, MappedCoachData } from "@/types/hot-axle";
 import type { DurationPreset } from "@/components/brake-binding/pressure-chart";
+import type { CoachByLocationItem } from "@/types/pneumatic";
+import { fetchPneumaticTelemetryFromSupabase } from "@/lib/pneumatic-supabase";
 
 const TIME_PRESETS: { label: string; value: DurationPreset; title: string }[] = [
   { label: "1m",    value: "1m",    title: "Last 1 Minute" },
@@ -53,7 +55,9 @@ export interface ReportDeviceMeta {
 interface ReportModalProps {
   onClose: () => void;
   meta: ReportDeviceMeta;
-  /* Brake Binding */
+  /* For report to independently re-fetch brake data */
+  matchedDev?: CoachByLocationItem;
+  /* Brake Binding — fallback snapshot only */
   brakeHistory?: PneumaticHistoryRow[];
   /* Hot Axle */
   hotAxleCoach?: MappedCoachData;
@@ -91,12 +95,16 @@ function downloadCSV(rows: string[][], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function ReportModal({ onClose, meta, brakeHistory = [], hotAxleCoach, rawHamsData = [] }: ReportModalProps) {
+export function ReportModal({ onClose, meta, matchedDev, brakeHistory = [], hotAxleCoach, rawHamsData = [] }: ReportModalProps) {
   const [duration, setDuration] = useState<DurationPreset>("24h");
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
   const [showCustom, setShowCustom] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  // Fetched report data — independent of the dashboard's limited cache
+  const [reportBrakeData, setReportBrakeData] = useState<PneumaticHistoryRow[] | null>(null);
 
   /* local datetime helpers */
   const now = new Date();
@@ -112,6 +120,8 @@ export function ReportModal({ onClose, meta, brakeHistory = [], hotAxleCoach, ra
     setDuration(v);
     setCustomStart(""); setCustomEnd("");
     setGenerated(false);
+    setReportBrakeData(null);
+    setFetchError(null);
   };
 
   const handleApplyCustom = () => {
@@ -121,6 +131,8 @@ export function ReportModal({ onClose, meta, brakeHistory = [], hotAxleCoach, ra
     setCustomEnd(tempEnd || toInput(new Date()));
     setShowCustom(false);
     setGenerated(false);
+    setReportBrakeData(null);
+    setFetchError(null);
   };
 
   const applyQuick = (p: "7d" | "30d" | "1y" | "start") => {
@@ -133,19 +145,41 @@ export function ReportModal({ onClose, meta, brakeHistory = [], hotAxleCoach, ra
     setTempStart(sStr); setTempEnd(eStr);
     setDuration("custom"); setCustomStart(sStr); setCustomEnd(eStr);
     setShowCustom(false); setGenerated(false);
+    setReportBrakeData(null); setFetchError(null);
   };
 
-  /* ── Filtered brake data ─────────────────────────────────────── */
-  const filteredBrake = useMemo(() => {
-    if (meta.deviceType !== "brake-binding") return [];
-    const { startMs, endMs } = durationToMs(duration, customStart, customEnd);
-    return brakeHistory.filter(r => {
-      const t = new Date((r.timestamp || "").replace(" ", "T")).getTime();
-      return t >= startMs && t <= endMs;
-    }).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  }, [meta.deviceType, brakeHistory, duration, customStart, customEnd]);
+  /* ── Generate Report: independently fetch fresh data ─────────── */
+  const handleGenerate = useCallback(async () => {
+    setFetchError(null);
 
-  /* ── Filtered hot axle data ──────────────────────────────────── */
+    if (meta.deviceType === "brake-binding" && meta.deviceId) {
+      setFetching(true);
+      try {
+        const result = await fetchPneumaticTelemetryFromSupabase(
+          meta.deviceId,
+          matchedDev,
+          duration,
+          customStart || undefined,
+          customEnd || undefined,
+        );
+        const rows = (result.history?.data || []).sort(
+          (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        setReportBrakeData(rows);
+        setGenerated(true);
+      } catch (err) {
+        setFetchError("Failed to fetch report data. Please try again.");
+        console.error("Report fetch error:", err);
+      } finally {
+        setFetching(false);
+      }
+    } else {
+      // Hot axle: filter existing rawHamsData client-side (no independent fetch needed yet)
+      setGenerated(true);
+    }
+  }, [meta, matchedDev, duration, customStart, customEnd]);
+
+  /* ── For hot axle: filter existing data client-side ──────────── */
   const filteredAxle = useMemo(() => {
     if (meta.deviceType !== "hot-axle") return [];
     const { startMs, endMs } = durationToMs(duration, customStart, customEnd);
@@ -156,6 +190,9 @@ export function ReportModal({ onClose, meta, brakeHistory = [], hotAxleCoach, ra
       new Date(a.created_at || "").getTime() - new Date(b.created_at || "").getTime()
     );
   }, [meta.deviceType, rawHamsData, duration, customStart, customEnd]);
+
+  // Use freshly fetched brake data; fall back to passed-in snapshot if not yet fetched
+  const filteredBrake = reportBrakeData ?? brakeHistory;
 
   const labelForDuration = TIME_PRESETS.find(p => p.value === duration)?.title || "Custom Range";
   const periodLabel = duration === "custom"
@@ -189,7 +226,6 @@ export function ReportModal({ onClose, meta, brakeHistory = [], hotAxleCoach, ra
 
   /* ── Print ───────────────────────────────────────────────────── */
   const handlePrint = () => {
-    setGenerated(true);
     setTimeout(() => window.print(), 300);
   };
 
@@ -212,16 +248,23 @@ export function ReportModal({ onClose, meta, brakeHistory = [], hotAxleCoach, ra
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {generated && (
+              <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-white/10 text-indigo-200">
+                {filteredBrake.length} records
+              </span>
+            )}
             <button
               onClick={handleCSV}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all"
+              disabled={!generated || fetching}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white text-xs font-bold transition-all"
             >
               <FileDown className="h-3.5 w-3.5" />
               Export CSV
             </button>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold transition-all"
+              disabled={!generated || fetching}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white text-xs font-bold transition-all"
             >
               <Printer className="h-3.5 w-3.5" />
               Print / PDF
@@ -238,6 +281,7 @@ export function ReportModal({ onClose, meta, brakeHistory = [], hotAxleCoach, ra
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-slate-500" />
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Select Report Period</span>
+              <span className="text-[10px] text-slate-400 italic ml-1">— report fetches fresh data for the selected window</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <div className="flex items-center bg-slate-900 rounded-xl p-0.5 shadow-inner">
@@ -271,11 +315,15 @@ export function ReportModal({ onClose, meta, brakeHistory = [], hotAxleCoach, ra
                 </button>
               </div>
               <button
-                onClick={() => { setGenerated(true); }}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all"
+                onClick={handleGenerate}
+                disabled={fetching}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-bold shadow-sm transition-all"
               >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Generate Report
+                {fetching ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching…</>
+                ) : (
+                  <><CheckCircle2 className="h-3.5 w-3.5" /> Generate Report</>
+                )}
               </button>
             </div>
 
@@ -315,6 +363,13 @@ export function ReportModal({ onClose, meta, brakeHistory = [], hotAxleCoach, ra
                     Apply
                   </button>
                 </div>
+              </div>
+            )}
+
+            {fetchError && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {fetchError}
               </div>
             )}
           </div>

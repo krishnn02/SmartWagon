@@ -322,6 +322,7 @@ export default function BrakeBindingPage() {
                 zone: undefined,
                 generatedBy: user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : user?.email,
               }}
+              matchedDev={allDevices.find((d) => d.device_id === selectedDevice)}
               brakeHistory={historyAccum}
             />
           )}

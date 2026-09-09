@@ -319,17 +319,21 @@ export async function fetchPneumaticTelemetryFromSupabase(
   // - During station stops: service brake applies (BP drops to ~4.1 kg/cm², BC rises to ~1.9 kg/cm²), then releases.
   // - Over 1 month (30d): train exhibits normal running periods with Released brakes and discrete station stopping cycles.
   //   It is NEVER applied continuously for 1 whole month!
-  const pointsCount =
-    duration === "1m" ? 15 :
-    duration === "15m" ? 25 :
-    duration === "30m" ? 30 :
-    duration === "24h" ? 36 :
-    duration === "48h" ? 40 :
-    duration === "7d" ? 42 :
-    (duration === "30d" || duration === "1mth" || duration === "last-month") ? 45 :
-    (duration === "1y" || duration === "1yr" || duration === "last-year") ? 52 : 40;
-
   const totalDurationMs = Math.max(1000, endTime.getTime() - startTime.getTime());
+
+  const pointsCount =
+    duration === "1m"  ? 60 :
+    duration === "15m" ? 90 :
+    duration === "30m" ? 90 :
+    duration === "24h" ? 96 :
+    duration === "48h" ? 96 :
+    duration === "7d"  ? 168 :
+    (duration === "30d" || duration === "1mth" || duration === "last-month") ? 180 :
+    (duration === "1y" || duration === "1yr" || duration === "last-year") ? 365 :
+    duration === "custom"
+      ? Math.min(500, Math.max(30, Math.round(totalDurationMs / (15 * 60 * 1000))))
+      : 96;
+
   const stepMs = totalDurationMs / Math.max(1, pointsCount - 1);
   const historyData: PneumaticHistoryRow[] = [];
 
