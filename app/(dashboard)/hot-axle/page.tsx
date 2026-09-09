@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Thermometer, LayoutGrid, LineChart, Bell, Loader2 } from "lucide-react";
+import { LineChart, Bell, Loader2, Sparkles, Train } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -15,13 +15,15 @@ import { HotAxleCard } from "@/components/hot-axle/hot-axle-card";
 import { HotAxleModal } from "@/components/hot-axle/hot-axle-modal";
 import { HotAxleChartView } from "@/components/hot-axle/hot-axle-chart-view";
 import { HotAxleAlertsView } from "@/components/hot-axle/hot-axle-alerts-view";
+import { AxleDigitalTwin } from "@/components/hot-axle/axle-digital-twin";
 
-type ViewType = "Coaches" | "Chart" | "Alerts";
+type ViewType = "Coaches" | "Axle Twin" | "Chart" | "Alerts";
 
 export default function HotAxlePage() {
   const { user } = useAuth();
   const [viewType, setViewType] = useState<ViewType>("Coaches");
   const [selectedDevice, setSelectedDevice] = useState<MappedCoachData | null>(null);
+  const [selectedTwinCoachIndex, setSelectedTwinCoachIndex] = useState<number>(0);
 
   const [filters, setFilters] = useState({
     trainNumber: "All",
@@ -34,13 +36,7 @@ export default function HotAxlePage() {
   const { data: coaches = [], isLoading: isLoadingCoaches } = useQuery({
     queryKey: ['coaches_hams', user?.division_name],
     queryFn: async () => {
-      let query = supabase.from('coaches_hams').select('*');
-      
-      // Filter by location based on user division if available
-      // if (user?.division_name) {
-      //   query = query.ilike('location', `%${user.division_name}%`);
-      // }
-
+      const query = supabase.from('coaches_hams').select('*');
       const { data, error } = await query;
       if (error) throw error;
       return data as CoachHams[];
@@ -56,13 +52,10 @@ export default function HotAxlePage() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Since hams_data uses HAMS00X for device_id and coaches_hams uses Raspberry4_7,
-      // we cannot filter hams_data by coach device_ids directly.
-      // We will just fetch the latest 5000 records overall to get the latest readings for all 8 axles.
+      // Fetch the latest 5000 records overall to get the latest readings for all 8 axles
       query = query.limit(5000);
 
       const { data, error } = await query;
-
       if (error) throw error;
       return data as HamsData[];
     },
@@ -88,17 +81,9 @@ export default function HotAxlePage() {
     }
 
     for (const coach of activeCoaches) {
-      // In this specific system, the hams_data records have device_id like HAMS001-HAMS009
-      // which actually represent the individual axle sensors, while the coach is the master Raspberry Pi.
-      // So, for a coach, we want to find the latest reading for EACH unique sensor.
-      // If we have multiple coaches later, we'd filter by master_id. For now, we take all relevant readings.
-      
       let coachReadings = rawHamsData;
       
-      // If there's a clear link like master_id matching the coach device_id, filter it:
-      // (But since Raspberry4_7 doesn't match HAMS-M1-001 exactly, we'll assign all readings to this coach if it's the only one)
       if (activeCoaches.length > 1 && coach.device_id) {
-         // Naive match if multiple coaches
          coachReadings = rawHamsData.filter(d => d.master_id?.includes(coach.device_id || '') || d.device_id === coach.device_id);
       }
 
@@ -114,10 +99,8 @@ export default function HotAxlePage() {
         continue;
       }
 
-      // We need the LATEST reading for EACH distinct sensor (HAMS001 to HAMS008)
+      // Latest reading for EACH distinct sensor (HAMS001 to HAMS008)
       const latestReadingsBySensor = new Map<string, HamsData>();
-      
-      // Since rawHamsData is ordered by created_at DESC, the first time we see a device_id, it's the latest
       for (const reading of coachReadings) {
         if (reading.device_id && !latestReadingsBySensor.has(reading.device_id)) {
           latestReadingsBySensor.set(reading.device_id, reading);
@@ -131,10 +114,9 @@ export default function HotAxlePage() {
       let hasCritical = false;
       let hasWarning = false;
 
-      const axleSlots: any = {};
+      const axleSlots: Record<string, AxleReading> = {};
       const slotNames = ['A1-1', 'A1-2', 'A2-1', 'A2-2', 'A3-1', 'A3-2', 'A4-1', 'A4-2'];
       
-      // Strict mapping of specific HAMS sensors to specific axle slots
       const sensorToSlotMap: Record<string, string> = {
         'HAMS001': 'A1-1',
         'HAMS002': 'A1-2',
@@ -146,28 +128,25 @@ export default function HotAxlePage() {
         'HAMS008': 'A4-2',
       };
 
-      // Pre-initialize all 8 slots with empty data so the UI always renders exactly 8 boxes correctly
       slotNames.forEach(slot => {
         axleSlots[slot] = {
-          sensorId: null,
+          sensorId: '',
           temperature: 0,
           isCritical: false,
           isWarning: false
         };
       });
 
-      // Map the available latest readings into their exact designated slots
       latestReadings.forEach((reading) => {
         const deviceId = reading.device_id || '';
         const slot = sensorToSlotMap[deviceId];
         
-        // Only assign if it's one of the known sensors mapped to a slot
         if (slot) {
           const temp = reading.temperature || 0;
           if (temp > maxTemp) maxTemp = temp;
           
-          const isCritical = reading.status === 'Critical' || temp > 90;
-          const isWarning = reading.status === 'Warning' || (temp > 80 && temp <= 90);
+          const isCritical = reading.status === 'Critical' || temp > 80;
+          const isWarning = reading.status === 'Warning' || (temp > 65 && temp <= 80);
           
           if (isCritical) hasCritical = true;
           if (isWarning) hasWarning = true;
@@ -181,15 +160,11 @@ export default function HotAxlePage() {
         }
       });
 
-      let status: 'Good' | 'Warning' | 'Critical' = 'Good';
-      if (hasCritical) status = 'Critical';
-      else if (hasWarning) status = 'Warning';
-
       result.push({
         coach,
         readings: coachReadings,
         maxTemp,
-        status,
+        status: hasCritical ? 'Critical' : hasWarning ? 'Warning' : 'Good',
         axleSlots,
         latestTimestamp
       });
@@ -201,7 +176,6 @@ export default function HotAxlePage() {
   // Filter options
   const trainOptions = Array.from(new Set(mappedData.map(d => d.coach.train_no).filter(Boolean))) as string[];
   const uniqueIdOptions = Array.from(new Set(mappedData.map(d => d.coach.device_id).filter(Boolean))) as string[];
-  // Assuming coach Type is somehow derived from coach_no or not explicitly in DB, we'll mock or leave blank
   const coachTypeOptions = ["1AC", "2AC", "3AC", "SL"]; 
 
   // Apply filters
@@ -210,8 +184,6 @@ export default function HotAxlePage() {
       const matchTrain = filters.trainNumber === "All" || d.coach.train_no === filters.trainNumber;
       const matchId = filters.uniqueId === "All" || d.coach.device_id === filters.uniqueId;
       const matchStatus = filters.status === "All" || d.status === filters.status;
-      // Coach type logic skipped for brevity, matching all if not implemented
-      
       return matchTrain && matchId && matchStatus;
     });
   }, [mappedData, filters]);
@@ -220,8 +192,7 @@ export default function HotAxlePage() {
     setFilters({ trainNumber: "All", coachType: "All", uniqueId: "All", status: "All" });
   };
 
-  const criticalCount = mappedData.filter(d => d.status === 'Critical').length;
-  const warningCount = mappedData.filter(d => d.status === 'Warning').length;
+  const currentTwinCoach = filteredData[selectedTwinCoachIndex] || filteredData[0] || mappedData[0];
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-6 lg:p-8 pt-6 pb-24 md:pb-8 h-full overflow-y-auto bg-slate-50 w-full overflow-x-hidden">
@@ -231,9 +202,14 @@ export default function HotAxlePage() {
           <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-slate-200 transition-colors">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-800"><path d="m15 18-6-6 6-6"/></svg>
           </Link>
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">
-            Hot Axle Monitoring
-          </h2>
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">
+              Hot Axle Monitoring & Digital Twin
+            </h2>
+            <p className="text-xs text-slate-500 font-medium">
+              Real-time bearing temperature telemetry & historical timeline playback
+            </p>
+          </div>
         </div>
         <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm text-xs font-semibold text-slate-500 self-start sm:self-auto">
           Last Updated: {new Date().toLocaleString()}
@@ -269,27 +245,30 @@ export default function HotAxlePage() {
             </div>
           </div>
 
-          {/* View Type */}
+          {/* View Type Switcher */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col justify-between w-full sm:w-auto">
-            <h3 className="text-[10px] font-bold text-slate-500 mb-3 block uppercase tracking-wider">View Type</h3>
+            <h3 className="text-[10px] font-bold text-slate-500 mb-3 block uppercase tracking-wider">View Mode</h3>
             <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200 h-full">
-              {(["Coaches", "Chart View", "Alerts"] as const).map((v) => (
+              {(
+                [
+                  { id: "Coaches", label: "Coaches", icon: Train },
+                  { id: "Axle Twin", label: "Axle Twin", icon: Sparkles },
+                  { id: "Chart", label: "Charts", icon: LineChart },
+                  { id: "Alerts", label: "Alerts", icon: Bell },
+                ] as const
+              ).map((v) => (
                 <button
-                  key={v}
-                  onClick={() => setViewType(v === "Chart View" ? "Chart" : v === "Alerts" ? "Alerts" : "Coaches")}
+                  key={v.id}
+                  onClick={() => setViewType(v.id)}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-lg transition-all border",
-                    (viewType === "Coaches" && v === "Coaches") || 
-                    (viewType === "Chart" && v === "Chart View") || 
-                    (viewType === "Alerts" && v === "Alerts")
+                    "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all border",
+                    viewType === v.id
                       ? "bg-white text-blue-600 shadow-sm border-slate-200/60"
                       : "text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-100"
                   )}
                 >
-                  {v === "Coaches" && <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2c-3.3 0-6 2.7-6 6 0 4.2 6 12 6 12s6-7.8 6-12c0-3.3-2.7-6-6-6Zm0 8.5c-1.4 0-2.5-1.1-2.5-2.5S10.6 5.5 12 5.5s2.5 1.1 2.5 2.5S13.4 10.5 12 10.5Z"/></svg>}
-                  {v === "Chart View" && <LineChart className="h-3.5 w-3.5" />}
-                  {v === "Alerts" && <Bell className="h-3.5 w-3.5" />}
-                  <span className="hidden sm:inline">{v}</span>
+                  <v.icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="hidden sm:inline">{v.label}</span>
                 </button>
               ))}
             </div>
@@ -299,54 +278,95 @@ export default function HotAxlePage() {
 
       {/* Content Area */}
       <div className="w-full">
-          {(isLoadingCoaches || isLoadingData) ? (
-            <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400">
-              <Loader2 className="h-8 w-8 animate-spin mb-4 text-blue-500" />
-              <p className="text-sm font-medium">Fetching sensor data...</p>
-            </div>
-          ) : (
-            <>
-              {viewType === "Coaches" && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg md:text-xl font-bold text-slate-900">Hot Axles</h3>
-                    <div className="bg-blue-500 text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="16" rx="2" ry="2"/><path d="M4 11h16"/><path d="M12 3v8"/><path d="m8 19-2 3"/><path d="m16 19 2 3"/><path d="M2 19h20"/></svg>
-                      {filteredData.length} Coaches
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                    {filteredData.length > 0 ? (
-                      filteredData.map((data) => (
-                        <HotAxleCard 
-                          key={data.coach.id} 
-                          data={data} 
-                          onView={() => setSelectedDevice(data)}
-                        />
-                      ))
-                    ) : (
-                      <div className="col-span-full p-12 text-center bg-white rounded-2xl border border-slate-100 border-dashed">
-                        <p className="text-slate-500 text-sm font-medium">No coaches found matching criteria.</p>
-                      </div>
-                    )}
+        {(isLoadingCoaches || isLoadingData) ? (
+          <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400">
+            <Loader2 className="h-8 w-8 animate-spin mb-4 text-blue-500" />
+            <p className="text-sm font-medium">Fetching axle sensor data from database...</p>
+          </div>
+        ) : (
+          <>
+            {/* View 1: Coaches Grid */}
+            {viewType === "Coaches" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg md:text-xl font-bold text-slate-900">Installed Devices & Coaches</h3>
+                  <div className="bg-blue-500 text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                    <Train className="h-3.5 w-3.5" />
+                    {filteredData.length} Coaches
                   </div>
                 </div>
-              )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                  {filteredData.length > 0 ? (
+                    filteredData.map((data) => (
+                      <HotAxleCard 
+                        key={data.coach.id} 
+                        data={data} 
+                        onView={() => setSelectedDevice(data)}
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-full p-12 text-center bg-white rounded-2xl border border-slate-100 border-dashed">
+                      <p className="text-slate-500 text-sm font-medium">No coaches found matching criteria.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
-              {viewType === "Chart" && (
-                <HotAxleChartView />
-              )}
+            {/* View 2: Axle Digital Twin with Timeline Scrubber */}
+            {viewType === "Axle Twin" && currentTwinCoach && (
+              <div className="space-y-5">
+                {/* Coach selector if multiple coaches exist */}
+                {filteredData.length > 1 && (
+                  <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-4">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                      Select Coach:
+                    </span>
+                    <div className="flex items-center gap-2 overflow-x-auto py-1">
+                      {filteredData.map((c, idx) => (
+                        <button
+                          key={c.coach.id}
+                          type="button"
+                          onClick={() => setSelectedTwinCoachIndex(idx)}
+                          className={cn(
+                            "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all whitespace-nowrap",
+                            selectedTwinCoachIndex === idx
+                              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                              : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                          )}
+                        >
+                          {c.coach.coach_no || c.coach.device_id}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-              {viewType === "Alerts" && (
-                <HotAxleAlertsView data={mappedData} rawHamsData={rawHamsData} />
-              )}
-            </>
-          )}
-        </div>
+                <AxleDigitalTwin
+                  coachData={currentTwinCoach}
+                  allRawReadings={rawHamsData}
+                />
+              </div>
+            )}
 
+            {/* View 3: Fleet Charts */}
+            {viewType === "Chart" && (
+              <HotAxleChartView />
+            )}
+
+            {/* View 4: System Alerts */}
+            {viewType === "Alerts" && (
+              <HotAxleAlertsView data={mappedData} rawHamsData={rawHamsData} />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Modal with Digital Twin & Timeline */}
       {selectedDevice && (
         <HotAxleModal 
           data={selectedDevice} 
+          rawReadings={rawHamsData}
           onClose={() => setSelectedDevice(null)} 
         />
       )}
