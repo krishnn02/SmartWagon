@@ -16,14 +16,15 @@ interface StatusCardProps {
 
 const stateColors: Record<string, { bg: string; text: string }> = {
   Normal: { bg: "from-emerald-600 to-emerald-700", text: "text-white" },
-  IDLE: { bg: "from-emerald-600 to-emerald-700", text: "text-white" },
-  "SYSTEM ISOLATED": { bg: "from-emerald-600 to-emerald-700", text: "text-white" },
-  "Brake Binding": { bg: "from-red-600 to-red-700", text: "text-white" },
-  "Emergency Brake": { bg: "from-red-600 to-red-700", text: "text-white" },
-  "FULL SERVICE": { bg: "from-orange-600 to-orange-700", text: "text-white" },
-  "Air Leakage": { bg: "from-orange-600 to-orange-700", text: "text-white" },
-  SERVICE: { bg: "from-orange-400 to-orange-500", text: "text-white" },
-  ISOLATED: { bg: "from-purple-600 to-purple-700", text: "text-white" },
+  IDLE: { bg: "from-teal-600 to-teal-700", text: "text-white" },
+  "SYSTEM PROGRESS": { bg: "from-blue-600 to-blue-700", text: "text-white" },
+  SERVICE: { bg: "from-yellow-500 to-yellow-600", text: "text-white" },
+  "FULL SERVICE": { bg: "from-orange-500 to-orange-600", text: "text-white" },
+  "Emergency Brake": { bg: "from-red-800 to-red-900", text: "text-white" },
+  "Brake Binding": { bg: "from-red-500 to-red-600", text: "text-white" },
+  "Air Leakage": { bg: "from-amber-500 to-amber-600", text: "text-white" },
+  "SYSTEM ISOLATED": { bg: "from-purple-500 to-purple-600", text: "text-white" },
+  ISOLATED: { bg: "from-purple-700 to-purple-800", text: "text-white" },
   "Sensor Offline": { bg: "from-slate-500 to-slate-600", text: "text-white" },
 };
 
