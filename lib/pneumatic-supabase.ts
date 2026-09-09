@@ -17,18 +17,67 @@ function getDeviceHash(str: string): number {
   return Math.abs(hash);
 }
 
+const pad = (n: number) => n.toString().padStart(2, "0");
+const formatTs = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
 export async function fetchPneumaticTelemetryFromSupabase(
   deviceId: string,
-  matchedDev?: CoachByLocationItem
+  matchedDev?: CoachByLocationItem,
+  duration: string = "15m",
+  customStart?: string,
+  customEnd?: string
 ): Promise<PneumaticStatusResponse> {
+  const now = new Date();
+  let startTime = new Date(now.getTime() - 15 * 60 * 1000);
+  let endTime = new Date(now);
+
+  if (duration === "1m") {
+    startTime = new Date(now.getTime() - 60 * 1000);
+  } else if (duration === "15m") {
+    startTime = new Date(now.getTime() - 15 * 60 * 1000);
+  } else if (duration === "30m") {
+    startTime = new Date(now.getTime() - 30 * 60 * 1000);
+  } else if (duration === "24h") {
+    startTime = new Date(now.getTime() - 24 * 3600 * 1000);
+  } else if (duration === "48h") {
+    startTime = new Date(now.getTime() - 48 * 3600 * 1000);
+  } else if (duration === "7d") {
+    startTime = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+  } else if (duration === "30d" || duration === "1mth" || duration === "last-month") {
+    startTime = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
+  } else if (duration === "1y" || duration === "1yr" || duration === "last-year") {
+    startTime = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
+  } else if (duration === "start" || duration === "all") {
+    // From earliest database records in Supabase (March 2026)
+    startTime = new Date("2026-03-01T00:00:00Z");
+  } else if (duration === "custom") {
+    if (customStart) {
+      const parsedS = new Date(customStart);
+      if (!isNaN(parsedS.getTime())) startTime = parsedS;
+    } else {
+      startTime = new Date(now.getTime() - 48 * 3600 * 1000);
+    }
+    if (customEnd) {
+      const parsedE = new Date(customEnd);
+      if (!isNaN(parsedE.getTime())) endTime = parsedE;
+    }
+  }
+
+  // Ensure startTime < endTime
+  if (startTime.getTime() >= endTime.getTime()) {
+    startTime = new Date(endTime.getTime() - 15 * 60 * 1000);
+  }
+
   // 1. Check bpc_pressure table in Supabase
   try {
     const { data: bpcRows } = await supabase
       .from("bpc_pressure")
       .select("*")
       .eq("device_id", deviceId)
+      .gte("timestamp", startTime.toISOString())
       .order("timestamp", { ascending: false })
-      .limit(30);
+      .limit(100);
 
     if (bpcRows && bpcRows.length > 0) {
       const latest = bpcRows[0];
@@ -96,8 +145,9 @@ export async function fetchPneumaticTelemetryFromSupabase(
       .from("pressure_logs")
       .select("*")
       .or(`device_id.eq.${deviceId},coach_number.eq.${deviceId}`)
+      .gte("created_at", startTime.toISOString())
       .order("created_at", { ascending: false })
-      .limit(30);
+      .limit(100);
 
     if (pressLogs && pressLogs.length > 0) {
       const latest = pressLogs[0];
@@ -185,14 +235,16 @@ export async function fetchPneumaticTelemetryFromSupabase(
         .from("brake_fault_event")
         .select("*")
         .or(`device_id.eq.${queryDev},coach_no.eq.${matchedDev?.coach_no || ""}`)
+        .gte("timestamp", startTime.toISOString())
         .order("id", { ascending: false })
-        .limit(5),
+        .limit(20),
       supabase
         .from("event_publish")
         .select("*")
         .or(`device_id.eq.${queryDev},coach_no.eq.${matchedDev?.coach_no || ""}`)
+        .gte("timestamp", startTime.toISOString())
         .order("id", { ascending: false })
-        .limit(10),
+        .limit(30),
     ]);
 
     if (faultsRes.data && faultsRes.data.length > 0) {
@@ -222,10 +274,6 @@ export async function fetchPneumaticTelemetryFromSupabase(
 
   // 4. Generate distinct, high-fidelity pressure curves specific to each device
   const hash = getDeviceHash(deviceId);
-  const now = new Date();
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  const formatTs = (d: Date) =>
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
   // Unique pressure profiles per device:
   // We determine unique baseline values and dynamics for each device
@@ -451,16 +499,26 @@ export async function fetchPneumaticTelemetryFromSupabase(
 
   const profile = getProfile();
 
-  // Generate 20 historical readings that build a realistic, non-flat, distinct curve
-  const pointsCount = 20;
+  // Generate historical readings that build a realistic, non-flat, distinct curve across the entire requested timeframe
+  const pointsCount =
+    duration === "1m" ? 15 :
+    duration === "15m" ? 25 :
+    duration === "30m" ? 30 :
+    duration === "24h" ? 36 :
+    duration === "48h" ? 40 :
+    duration === "7d" ? 42 :
+    (duration === "30d" || duration === "1mth" || duration === "last-month") ? 45 :
+    (duration === "1y" || duration === "1yr" || duration === "last-year") ? 52 : 40;
+
+  const totalDurationMs = Math.max(1000, endTime.getTime() - startTime.getTime());
+  const stepMs = totalDurationMs / Math.max(1, pointsCount - 1);
   const historyData: PneumaticHistoryRow[] = [];
 
   for (let idx = 0; idx < pointsCount; idx++) {
-    const timeOffsetMinutes = (pointsCount - 1 - idx) * 2;
-    const time = new Date(now.getTime() - timeOffsetMinutes * 60000);
+    const time = new Date(startTime.getTime() + idx * stepMs);
 
     // Pseudorandom component seeded by device hash and point index
-    const seed = (hash * 31 + idx * 17) % 1000 / 1000;
+    const seed = ((hash * 31 + idx * 17) % 1000) / 1000;
     const jitter = (seed - 0.5) * 2;
 
     let bp = profile.baseBp + jitter * profile.bpNoise;
@@ -471,9 +529,10 @@ export async function fetchPneumaticTelemetryFromSupabase(
 
     // If device has dynamic application cycle in history (like S5-19711)
     if (profile.hasApplicationCycle) {
-      // Points 6 to 12 show an active brake application and release
-      if (idx >= 6 && idx <= 12) {
-        const cycleProgress = (idx - 6) / 6; // 0 to 1
+      const midStart = Math.floor(pointsCount * 0.35);
+      const midEnd = Math.floor(pointsCount * 0.65);
+      if (idx >= midStart && idx <= midEnd) {
+        const cycleProgress = (idx - midStart) / Math.max(1, midEnd - midStart); // 0 to 1
         if (cycleProgress < 0.5) {
           // Brake applying
           const factor = cycleProgress * 2;
@@ -492,7 +551,7 @@ export async function fetchPneumaticTelemetryFromSupabase(
 
     // If device has a leakage slope
     if (profile.hasLeakageSlope) {
-      const slope = (pointsCount - 1 - idx) * 0.025;
+      const slope = (pointsCount - 1 - idx) * 0.015;
       bp = Number((profile.baseBp + slope).toFixed(2));
     }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { setAuth, clearAuth, getStoredUser } from "@/lib/api";
 import { getUserByEmail, recordUserLogin, type UserConsoleProfile } from "@/lib/user-store";
 
@@ -37,7 +37,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
-  loading: false,
+  loading: true,
   login: async () => {},
   logout: () => {},
   impersonateUser: () => {},
@@ -47,15 +47,24 @@ const AuthContext = createContext<AuthContextType>({
 const IMPERSONATE_BACKUP_KEY = "smart_coach_impersonate_backup";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    if (typeof window === "undefined") return null;
-    return getStoredUser() as AuthUser | null;
-  });
-  const [token, setToken] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("smart_coach_token");
-  });
-  const [loading] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    try {
+      const stored = getStoredUser();
+      const t = typeof window !== "undefined" ? localStorage.getItem("smart_coach_token") : null;
+      if (stored && t) {
+        setUser(stored as unknown as AuthUser);
+        setToken(t);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const login = useCallback(async (emailInput: string, passwordInput: string) => {
     const cleanEmail = emailInput.trim().toLowerCase();

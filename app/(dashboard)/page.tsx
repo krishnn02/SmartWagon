@@ -14,7 +14,7 @@ import { fetchPneumaticTelemetryFromSupabase } from "@/lib/pneumatic-supabase";
 import { DeviceSelector } from "@/components/brake-binding/device-selector";
 import { StatusCard } from "@/components/brake-binding/status-card";
 import { PneumaticGauge } from "@/components/brake-binding/pneumatic-gauge";
-import { PressureChart } from "@/components/brake-binding/pressure-chart";
+import { PressureChart, type DurationPreset } from "@/components/brake-binding/pressure-chart";
 import { DiagnosticFlags } from "@/components/brake-binding/diagnostic-flags";
 import { PneumaticLog } from "@/components/brake-binding/pneumatic-log";
 import { ActiveFaults } from "@/components/brake-binding/active-faults";
@@ -37,6 +37,8 @@ const FALLBACK_BRAKE_DEVICES: CoachByLocationItem[] = MASTER_DEVICES.filter(
 export default function BrakeBindingPage() {
   const { user } = useAuth();
   const [userSelectedDevice, setUserSelectedDevice] = useState<string>("");
+  const [duration, setDuration] = useState<DurationPreset>("15m");
+  const [customRange, setCustomRange] = useState<{ start?: string; end?: string }>({});
 
   const isAdmin =
     user?.role === "Administrator" ||
@@ -103,13 +105,13 @@ export default function BrakeBindingPage() {
     coachesData?.data?.[0]?.device_id ||
     "";
 
-  // Fetch pneumatic status for selected device from Supabase & API
+  // Fetch pneumatic status for selected device from Supabase & API with duration filter
   const {
     data: statusData,
     isLoading: statusLoading,
     refetch,
   } = useQuery<PneumaticStatusResponse>({
-    queryKey: ["pneumatic-status", selectedDevice],
+    queryKey: ["pneumatic-status", selectedDevice, duration, customRange.start, customRange.end],
     queryFn: async () => {
       // Clean incorrect UTC timestamps specifically from API (commit 385f884)
       const cleanTs = (ts?: string) =>
@@ -141,10 +143,16 @@ export default function BrakeBindingPage() {
 
       // 2. Fetch live data for this specific device from Supabase
       const matchedDev = allDevices.find((d) => d.device_id === selectedDevice);
-      return await fetchPneumaticTelemetryFromSupabase(selectedDevice, matchedDev);
+      return await fetchPneumaticTelemetryFromSupabase(
+        selectedDevice,
+        matchedDev,
+        duration,
+        customRange.start,
+        customRange.end
+      );
     },
     enabled: !!selectedDevice,
-    refetchInterval: 5000,
+    refetchInterval: duration === "1m" || duration === "15m" ? 5000 : 30000,
     retry: 1,
   });
 
@@ -202,36 +210,6 @@ export default function BrakeBindingPage() {
         userRole={user?.role}
       />
 
-      {/* Quick Access to Hot Axle 3D Digital Twin (visible if user has Hot Axle access) */}
-      {(isAdmin || user?.allowedModules?.includes("hot-axle")) && (
-        <Link
-          href="/hot-axle"
-          className="flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 border border-slate-700/60 rounded-2xl text-white shadow-md hover:border-blue-500/50 hover:shadow-lg transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30">
-              <Thermometer className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-100 group-hover:text-blue-300 transition-colors">
-                  Hot Axle 3D Digital Twin
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Interactive Axle Telemetry
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                View real-time temperatures on realistic 3D railway axles with timeline playback
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs font-bold text-blue-400 group-hover:text-blue-300 transition-colors shrink-0">
-            <span>Open Axle Twin</span>
-            <span className="text-sm font-black">&rarr;</span>
-          </div>
-        </Link>
-      )}
 
       {statusLoading && !status ? (
         <div className="flex items-center justify-center py-20">
@@ -287,8 +265,20 @@ export default function BrakeBindingPage() {
             </div>
           </div>
 
-          {/* Pressure Chart */}
-          <PressureChart history={historyAccum} />
+          {/* Pressure Chart with Extended Duration & Custom Range */}
+          <PressureChart
+            history={historyAccum}
+            duration={duration}
+            customRange={customRange}
+            onDurationChange={(newDuration, start, end) => {
+              setDuration(newDuration);
+              if (newDuration === "custom" && start) {
+                setCustomRange({ start, end });
+              } else {
+                setCustomRange({});
+              }
+            }}
+          />
 
           {/* Diagnostic Flags */}
           <DiagnosticFlags alerts={status.alerts} />

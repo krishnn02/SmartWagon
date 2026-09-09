@@ -376,6 +376,35 @@ export default function HotAxlePage() {
             {/* View 1: Coaches Grid */}
             {viewType === "Coaches" && (
               <div className="space-y-4">
+                {/* Hot Axle 3D Digital Twin Interactive Banner */}
+                <div
+                  onClick={() => setViewType("Axle Twin")}
+                  className="flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 border border-slate-700/60 rounded-2xl text-white shadow-md hover:border-blue-500/50 hover:shadow-lg transition-all group cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-100 group-hover:text-blue-300 transition-colors">
+                          Hot Axle 3D Digital Twin
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          Interactive Axle Telemetry
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        View real-time temperatures on realistic 3D railway axles with timeline playback
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-400 group-hover:text-blue-300 transition-colors shrink-0">
+                    <span>Open Axle Twin</span>
+                    <span className="text-sm font-black">&rarr;</span>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg md:text-xl font-bold text-slate-900">Installed Devices & Coaches</h3>
                   <div className="bg-blue-500 text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
