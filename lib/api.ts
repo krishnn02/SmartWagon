@@ -45,7 +45,9 @@ export async function apiGet<T = unknown>(path: string, params?: Record<string, 
   });
 
   if (res.status === 401) {
-    clearAuth();
+    if (!token.startsWith("jwt-sc-")) {
+      clearAuth();
+    }
     throw new Error("Session expired. Please login again.");
   }
 
