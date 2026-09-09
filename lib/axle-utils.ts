@@ -16,6 +16,7 @@ export const SENSOR_TO_SLOT_MAP: Record<string, AxleSlotId> = {
   'HAMS005': 'A3-1',
   'HAMS006': 'A3-2',
   'HAMS007': 'A4-1',
+  'HAMS009': 'A4-1',
   'HAMS008': 'A4-2',
 };
 
@@ -26,7 +27,7 @@ export const SLOT_TO_SENSOR_MAP: Record<AxleSlotId, string> = {
   'A2-2': 'HAMS004',
   'A3-1': 'HAMS005',
   'A3-2': 'HAMS006',
-  'A4-1': 'HAMS007',
+  'A4-1': 'HAMS009',
   'A4-2': 'HAMS008',
 };
 

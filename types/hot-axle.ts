@@ -36,6 +36,7 @@ export interface AxleReading {
   temperature: number;
   isCritical: boolean;
   isWarning: boolean;
+  timestamp?: string | null;
 }
 
 export interface MappedCoachData {

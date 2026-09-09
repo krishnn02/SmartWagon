@@ -43,21 +43,54 @@ export default function HotAxlePage() {
     }
   });
 
-  // Fetch latest hams_data for these coaches
+  const ALL_HAMS_SENSORS = [
+    'HAMS001',
+    'HAMS002',
+    'HAMS003',
+    'HAMS004',
+    'HAMS005',
+    'HAMS006',
+    'HAMS007',
+    'HAMS008',
+    'HAMS009',
+  ];
+
+  // Fetch latest hams_data across all sensors in parallel to guarantee all 8 wheel bearings get live telemetry
   const { data: rawHamsData = [], isLoading: isLoadingData } = useQuery({
-    queryKey: ['hams_data', coaches.map(c => c.device_id).join(',')],
+    queryKey: ['hams_data_all_axles', coaches.map(c => c.device_id).join(',')],
     queryFn: async () => {
-      let query = supabase
+      // 1. Fetch latest records for EACH known sensor to prevent PostgREST's 1000-row cap from omitting earlier sensors
+      const sensorPromises = ALL_HAMS_SENSORS.map((devId) =>
+        supabase
+          .from('hams_data')
+          .select('*')
+          .eq('device_id', devId)
+          .order('created_at', { ascending: false })
+          .limit(100)
+      );
+
+      // 2. Also fetch latest overall records to capture any newly registered sensors and real-time updates
+      const generalPromise = supabase
         .from('hams_data')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(200);
 
-      // Fetch the latest 5000 records overall to get the latest readings for all 8 axles
-      query = query.limit(5000);
+      const [generalRes, ...sensorResults] = await Promise.all([generalPromise, ...sensorPromises]);
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as HamsData[];
+      const recordMap = new Map<string | number, HamsData>();
+      if (generalRes.data) {
+        generalRes.data.forEach((r) => recordMap.set(r.id || `${r.device_id}-${r.created_at}`, r as HamsData));
+      }
+      sensorResults.forEach((res) => {
+        if (res.data) {
+          res.data.forEach((r) => recordMap.set(r.id || `${r.device_id}-${r.created_at}`, r as HamsData));
+        }
+      });
+
+      return Array.from(recordMap.values()).sort(
+        (a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
+      );
     },
     refetchInterval: 30000, // Refetch every 30s
   });
@@ -103,7 +136,7 @@ export default function HotAxlePage() {
     for (const coach of activeCoaches) {
       let coachReadings = rawHamsData;
       
-      if (activeCoaches.length > 1 && coach.device_id) {
+      if (activeCoaches.length > 1 && coach.device_id && coach.device_id !== 'Raspberry4_7' && coach.device_id !== 'Raspberry_Fallback') {
          coachReadings = rawHamsData.filter(d => d.master_id?.includes(coach.device_id || '') || d.device_id === coach.device_id);
       }
 
@@ -119,7 +152,7 @@ export default function HotAxlePage() {
         continue;
       }
 
-      // Latest reading for EACH distinct sensor (HAMS001 to HAMS008)
+      // Latest reading for EACH distinct sensor (HAMS001 to HAMS009)
       const latestReadingsBySensor = new Map<string, HamsData>();
       for (const reading of coachReadings) {
         if (reading.device_id && !latestReadingsBySensor.has(reading.device_id)) {
@@ -145,6 +178,7 @@ export default function HotAxlePage() {
         'HAMS005': 'A3-1',
         'HAMS006': 'A3-2',
         'HAMS007': 'A4-1',
+        'HAMS009': 'A4-1',
         'HAMS008': 'A4-2',
       };
 
@@ -153,7 +187,8 @@ export default function HotAxlePage() {
           sensorId: '',
           temperature: 0,
           isCritical: false,
-          isWarning: false
+          isWarning: false,
+          timestamp: null
         };
       });
 
@@ -171,12 +206,22 @@ export default function HotAxlePage() {
           if (isCritical) hasCritical = true;
           if (isWarning) hasWarning = true;
 
-          axleSlots[slot] = {
-            sensorId: deviceId,
-            temperature: temp,
-            isCritical,
-            isWarning
-          };
+          const currentSlot = axleSlots[slot];
+          if (
+            !currentSlot.sensorId ||
+            currentSlot.temperature === 0 ||
+            (reading.created_at &&
+              (!currentSlot.timestamp ||
+                new Date(reading.created_at) > new Date(currentSlot.timestamp)))
+          ) {
+            axleSlots[slot] = {
+              sensorId: deviceId,
+              temperature: temp,
+              isCritical,
+              isWarning,
+              timestamp: reading.created_at
+            };
+          }
         }
       });
 

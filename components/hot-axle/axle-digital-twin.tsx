@@ -147,7 +147,7 @@ export function AxleDigitalTwin({
       const isCritical = temp > 80;
       const isWarning = temp > 65 && temp <= 80;
       res[slot] = {
-        sensorId: SLOT_TO_SENSOR_MAP[slot],
+        sensorId: coachData.axleSlots[slot]?.sensorId || SLOT_TO_SENSOR_MAP[slot],
         temperature: temp,
         isCritical,
         isWarning,
