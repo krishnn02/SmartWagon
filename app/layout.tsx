@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Smart Coach — Brake Binding Monitor",
-  description: "Indian Railways Brake Binding Monitoring System",
+  title: "Smart Coach Console",
+  description: "Indian Railways Smart Coach Monitoring System",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

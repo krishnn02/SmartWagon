@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
-import { setAuth, clearAuth, getStoredUser, isLoggedIn } from "@/lib/api";
+import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { setAuth, clearAuth, getStoredUser } from "@/lib/api";
 
 interface AuthUser {
   user_id: number;
@@ -25,25 +25,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
-  loading: true,
+  loading: false,
   login: async () => {},
   logout: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const t = localStorage.getItem("smart_coach_token");
-    const u = getStoredUser() as AuthUser | null;
-    if (t && u) {
-      setToken(t);
-      setUser(u);
-    }
-    setLoading(false);
-  }, []);
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    if (typeof window === "undefined") return null;
+    return getStoredUser() as AuthUser | null;
+  });
+  const [token, setToken] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("smart_coach_token");
+  });
+  const [loading] = useState(false);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await fetch(

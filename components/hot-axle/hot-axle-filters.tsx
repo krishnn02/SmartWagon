@@ -1,20 +1,21 @@
 "use client";
 
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ListFilter } from "lucide-react";
+
+export interface FilterState {
+  trainNumber: string;
+  coachType: string;
+  uniqueId: string;
+  status: string;
+}
 
 interface HotAxleFiltersProps {
   trainOptions: string[];
   coachTypeOptions: string[];
   uniqueIdOptions: string[];
-  filters: {
-    trainNumber: string;
-    coachType: string;
-    uniqueId: string;
-    status: string;
-  };
-  setFilters: (f: any) => void;
+  filters: FilterState;
+  setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   onClearFilters: () => void;
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth";
-import { Menu, TrainFront, Wifi } from "lucide-react";
+import { Menu, TrainFront } from "lucide-react";
 
 export function Header({ toggleSidebar }: { toggleSidebar?: () => void }) {
   const { user } = useAuth();
@@ -26,7 +26,7 @@ export function Header({ toggleSidebar }: { toggleSidebar?: () => void }) {
         <div className="h-8 w-px bg-slate-200 hidden lg:block" />
 
         <h2 className="text-lg font-bold bg-gradient-to-r from-blue-800 to-indigo-600 bg-clip-text text-transparent hidden xl:block">
-          Indian Railways — Brake Binding Monitor
+          Smart Coach Console
         </h2>
       </div>
 
