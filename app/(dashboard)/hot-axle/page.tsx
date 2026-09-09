@@ -16,6 +16,8 @@ import { HotAxleModal } from "@/components/hot-axle/hot-axle-modal";
 import { HotAxleChartView } from "@/components/hot-axle/hot-axle-chart-view";
 import { HotAxleAlertsView } from "@/components/hot-axle/hot-axle-alerts-view";
 import { AxleDigitalTwin } from "@/components/hot-axle/axle-digital-twin";
+import { ReportTriggerButton } from "@/components/reports/report-trigger-button";
+import { ReportModal } from "@/components/reports/report-modal";
 
 type ViewType = "Coaches" | "Axle Twin" | "Chart" | "Alerts";
 
@@ -24,6 +26,8 @@ export default function HotAxlePage() {
   const [viewType, setViewType] = useState<ViewType>("Coaches");
   const [selectedDevice, setSelectedDevice] = useState<MappedCoachData | null>(null);
   const [selectedTwinCoachIndex, setSelectedTwinCoachIndex] = useState<number>(0);
+  const [showReport, setShowReport] = useState(false);
+  const [reportCoach, setReportCoach] = useState<MappedCoachData | null>(null);
 
   const [filters, setFilters] = useState({
     trainNumber: "All",
@@ -327,9 +331,12 @@ export default function HotAxlePage() {
               <button className="bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-colors whitespace-nowrap">
                 <Bell className="h-3.5 w-3.5" /> Notify
               </button>
-              <button className="bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-colors whitespace-nowrap">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> Report
-              </button>
+              <ReportTriggerButton
+                onClick={() => {
+                  setReportCoach(filteredData[0] || mappedData[0] || null);
+                  setShowReport(true);
+                }}
+              />
             </div>
           </div>
 
@@ -481,10 +488,28 @@ export default function HotAxlePage() {
 
       {/* Modal with Digital Twin & Timeline */}
       {selectedDevice && (
-        <HotAxleModal 
-          data={selectedDevice} 
+        <HotAxleModal
+          data={selectedDevice}
           rawReadings={rawHamsData}
-          onClose={() => setSelectedDevice(null)} 
+          onClose={() => setSelectedDevice(null)}
+        />
+      )}
+
+      {/* Report Modal */}
+      {showReport && (
+        <ReportModal
+          onClose={() => setShowReport(false)}
+          meta={{
+            deviceId: reportCoach?.coach.device_id || reportCoach?.coach.actual_id || "HAMS-M1-001",
+            deviceType: "hot-axle",
+            trainNo: reportCoach?.coach.train_no || "—",
+            coachNo: reportCoach?.coach.coach_no || "—",
+            division: reportCoach?.coach.location || "—",
+            zone: undefined,
+            generatedBy: user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : user?.email,
+          }}
+          hotAxleCoach={reportCoach || undefined}
+          rawHamsData={rawHamsData}
         />
       )}
     </div>

@@ -69,6 +69,7 @@ export interface PneumaticStatusResponse {
   readings: PneumaticReadings;
   recentEvents: PneumaticEvent[];
   activeFaults: PneumaticFault[];
+  faultHistory?: PneumaticFault[];
   history: {
     limit: number;
     data: PneumaticHistoryRow[];

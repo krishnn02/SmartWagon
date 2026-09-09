@@ -177,7 +177,8 @@ export async function fetchPneumaticTelemetryFromSupabase(
   }
 
   // 3. Query live events and faults from Supabase (event_publish & brake_fault_event)
-  let liveFaults: PneumaticFault[] = [];
+  let liveFaults: PneumaticFault[] = [];       // filtered to time window
+  let allFaultHistory: PneumaticFault[] = [];  // all 100 recent rows
   let liveEvents: PneumaticEvent[] = [];
   let activeDbFault: string | null = null;
 
@@ -196,8 +197,8 @@ export async function fetchPneumaticTelemetryFromSupabase(
         .from("brake_fault_event")
         .select("*")
         .or(`device_id.eq.${queryDev},coach_no.eq.${matchedDev?.coach_no || ""}`)
-        .order("id", { ascending: false })
-        .limit(10),
+        .order("timestamp", { ascending: false })
+        .limit(100),
       supabase
         .from("event_publish")
         .select("*")
@@ -207,15 +208,30 @@ export async function fetchPneumaticTelemetryFromSupabase(
     ]);
 
     if (faultsRes.data && faultsRes.data.length > 0) {
-      // Check if there is a recent fault recorded
       activeDbFault = faultsRes.data[0].fault_name || null;
-      liveFaults = faultsRes.data.map((f) => ({
+
+      // Map all 100 rows into the history list
+      const mapFault = (f: Record<string, string>) => ({
         deviceId: f.device_id || deviceId,
         type: f.fault_name || "Brake Binding",
-        severity: f.fault_name?.includes("EMERGENCY") ? "CRITICAL" : "HIGH",
+        severity: f.fault_name?.includes("EMERGENCY")
+          ? "CRITICAL"
+          : f.fault_name?.includes("BINDING")
+          ? "HIGH"
+          : "WARNING",
         description: f.event_message || `${f.device_id} ${f.fault_name}`,
         timestamp: (f.timestamp || "").replace("+00:00", "").replace("Z", ""),
-      }));
+      });
+
+      allFaultHistory = faultsRes.data.map(mapFault);
+
+      // Filter to selected time window for the "active" tab
+      liveFaults = allFaultHistory.filter((f) => {
+        const ts = new Date(
+          f.timestamp.includes("T") ? f.timestamp : f.timestamp.replace(" ", "T")
+        ).getTime();
+        return ts >= startTime.getTime() && ts <= endTime.getTime();
+      });
     }
 
     if (eventsRes.data && eventsRes.data.length > 0) {
@@ -477,6 +493,7 @@ export async function fetchPneumaticTelemetryFromSupabase(
     },
     recentEvents: liveEvents,
     activeFaults: liveFaults,
+    faultHistory: allFaultHistory,
     history: {
       limit: historyData.length,
       data: historyData,
