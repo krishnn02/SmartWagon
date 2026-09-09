@@ -11,10 +11,12 @@ import {
   ChevronLeft,
   ChevronRight,
   TrainFront,
+  Thermometer,
 } from "lucide-react";
 
 const navigation = [
   { name: "Brake Binding", href: "/", icon: LayoutDashboard },
+  { name: "Hot Axle", href: "/hot-axle", icon: Thermometer },
 ];
 
 export function Sidebar({ isCollapsed, closeSidebar }: { isCollapsed: boolean; closeSidebar?: () => void }) {
