@@ -34,7 +34,24 @@ export default function BrakeBindingPage() {
   // Fetch pneumatic status for selected device
   const { data: statusData, isLoading: statusLoading, refetch } = useQuery<PneumaticStatusResponse>({
     queryKey: ["pneumatic-status", selectedDevice],
-    queryFn: () => apiGet("/pneumatic/status", selectedDevice ? { deviceId: selectedDevice } : undefined),
+    queryFn: async () => {
+      const data = await apiGet<PneumaticStatusResponse>("/pneumatic/status", selectedDevice ? { deviceId: selectedDevice } : undefined);
+      
+      // Clean incorrect UTC timestamps specifically from this API
+      const cleanTs = (ts?: string) => ts ? ts.replace('+00:00', '').replace('Z', '') : '';
+      
+      if (data) {
+        if (data.lastUpdated) data.lastUpdated = cleanTs(data.lastUpdated);
+        if (data.activeFaults) {
+          data.activeFaults.forEach(f => f.timestamp = cleanTs(f.timestamp));
+        }
+        if (data.history?.data) {
+          data.history.data.forEach(h => h.timestamp = cleanTs(h.timestamp));
+        }
+      }
+      
+      return data;
+    },
     enabled: !!selectedDevice,
     refetchInterval: 5000,
   });
