@@ -37,7 +37,6 @@ export default function LoginPage() {
             <TrainFront className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">Smart Coach</h1>
-          <p className="text-slate-400 text-sm mt-1">Brake Binding Monitoring System</p>
         </div>
 
         {/* Login Card */}
@@ -106,7 +105,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-slate-500 text-xs mt-6">
-          Indian Railways &middot; Brake Binding Monitoring
+          Indian Railways
         </p>
       </div>
     </div>
