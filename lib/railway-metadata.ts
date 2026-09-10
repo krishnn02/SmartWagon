@@ -206,6 +206,15 @@ export const MASTER_DEVICES: MasterDevice[] = [
 
   // Hot Axle Devices (Matching coaches_hams & hams_data telemetry)
   {
+    deviceId: "SCBB - NP-003",
+    name: "LWSCZAC (SCBB - NP-003)",
+    category: "hot-axle",
+    zoneCode: "CR",
+    divisionCode: "NGP",
+    coachNo: "LWSCZAC",
+    trainNo: "1207069",
+  },
+  {
     deviceId: "Raspberry4_7",
     name: "LWSCZAC (Raspberry4_7)",
     category: "hot-axle",

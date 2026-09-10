@@ -155,3 +155,47 @@ export function formatAxleDate(isoString: string | null | undefined): string {
     return 'N/A';
   }
 }
+
+export interface HotAxleIdentifiers {
+  masterId: string;
+  deviceId: string;
+  displayLabel: string;
+}
+
+export function getHotAxleIdentifiers(coach?: {
+  device_id?: string | null;
+  actual_id?: string | null;
+  technical_id?: string | null;
+  coach_no?: string | null;
+}): HotAxleIdentifiers {
+  const devId = (coach?.device_id || "").trim();
+
+  // Standardize the hot axle device identity:
+  // Master ID: "HAMS- M1-001"
+  // Device ID: "SCBB - NP-003"
+  if (
+    !devId ||
+    devId === "Raspberry4_7" ||
+    devId === "Raspberry_Fallback" ||
+    devId.includes("Raspberry") ||
+    devId.includes("NP") ||
+    devId === "SCBB - NP-003" ||
+    devId === "SCBB-NP-26-003" ||
+    coach?.coach_no === "LWSCZAC"
+  ) {
+    return {
+      masterId: "HAMS- M1-001",
+      deviceId: "SCBB - NP-003",
+      displayLabel: "Master ID :- HAMS- M1-001 | Device ID :- SCBB - NP-003",
+    };
+  }
+
+  const masterId = coach?.technical_id ? `HAMS- ${coach.technical_id}` : "HAMS- M1-001";
+  const deviceId = coach?.actual_id || devId || "SCBB - NP-003";
+
+  return {
+    masterId,
+    deviceId,
+    displayLabel: `Master ID :- ${masterId} | Device ID :- ${deviceId}`,
+  };
+}

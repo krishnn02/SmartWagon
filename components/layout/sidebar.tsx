@@ -27,21 +27,36 @@ export function Sidebar({
     user?.role === "Administrator" ||
     user?.email?.toLowerCase() === "admin@vasp.com";
 
-  // Dynamic navigation based on role and allowedModules
+  // Check if user has ANY selected device for the device types
+  const hasBrakeDevices =
+    isAdmin ||
+    user?.allowedDevices?.["brake-binding"]?.includes("ALL") ||
+    (user?.allowedDevices?.["brake-binding"]?.length ?? 0) > 0;
+
+  const hasAxleDevices =
+    isAdmin ||
+    user?.allowedDevices?.["hot-axle"]?.includes("ALL") ||
+    (user?.allowedDevices?.["hot-axle"]?.length ?? 0) > 0;
+
+  // Dynamic navigation: device type must NOT be in the sidebar if 0 devices are selected
   const navigationItems = [
     {
       id: "brake-binding",
       name: "Brake Binding",
       href: "/",
       icon: LayoutDashboard,
-      visible: isAdmin || user?.allowedModules?.includes("brake-binding"),
+      visible:
+        isAdmin ||
+        (user?.allowedModules?.includes("brake-binding") && hasBrakeDevices),
     },
     {
       id: "hot-axle",
       name: "Hot Axle",
       href: "/hot-axle",
       icon: Thermometer,
-      visible: isAdmin || user?.allowedModules?.includes("hot-axle"),
+      visible:
+        isAdmin ||
+        (user?.allowedModules?.includes("hot-axle") && hasAxleDevices),
     },
     {
       id: "user-console",

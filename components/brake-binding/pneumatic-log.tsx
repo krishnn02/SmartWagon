@@ -11,7 +11,7 @@ interface PneumaticLogProps {
 
 const statusPillColor = (s: string) => {
   const u = (s || "").toUpperCase();
-  if (u.includes("APPLIED") || u === "FULL") return "bg-red-100 text-red-700 border-red-200";
+  if (u.includes("APPLIED") || u === "FULL") return "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (u.includes("RELEASED")) return "bg-emerald-100 text-emerald-700 border-emerald-200";
   if (u.includes("IDLE")) return "bg-slate-100 text-slate-600 border-slate-200";
   return "bg-slate-100 text-slate-600 border-slate-200";
@@ -58,7 +58,7 @@ export function PneumaticLog({ history, onShowAll }: PneumaticLogProps) {
                   {derivedStatus}
                 </span>
                 <span className="text-xs text-slate-600 truncate">{row.coach_no}</span>
-                <span className="text-xs font-mono text-red-600 font-semibold">BC: {row.bc.toFixed(2)}</span>
+                <span className="text-xs font-mono text-emerald-700 font-semibold">BC: {row.bc.toFixed(2)}</span>
               </div>
             );
           })}

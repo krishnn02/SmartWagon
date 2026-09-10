@@ -103,10 +103,19 @@ export async function fetchPneumaticTelemetryFromSupabase(
         brake_duration: r.brake_duration || 0,
       }));
 
+      let bpcState = latest.brake_fault && latest.brake_fault !== "None" ? latest.brake_fault : "Normal";
+      if (bpcState.toLowerCase().includes("binding") || bpcState.toLowerCase().includes("leakage") || bpcState.toLowerCase().includes("leak")) {
+        bpcState = "Normal";
+      }
+      let bpcBrakeStatus = latest.brake_status || (latest.bc > 0.4 ? "APPLIED" : "RELEASED");
+      if (bpcBrakeStatus.toLowerCase().includes("binding") || bpcBrakeStatus.toLowerCase().includes("leak")) {
+        bpcBrakeStatus = "RELEASED";
+      }
+
       return {
         success: true,
-        state: latest.brake_fault && latest.brake_fault !== "None" ? latest.brake_fault : "Normal",
-        brakeStatus: latest.brake_status || (latest.bc > 0.4 ? "APPLIED" : "RELEASED"),
+        state: bpcState,
+        brakeStatus: bpcBrakeStatus,
         lastUpdated: (latest.timestamp || new Date().toISOString()).replace("+00:00", "").replace("Z", ""),
         context: {
           deviceId,
@@ -116,12 +125,12 @@ export async function fetchPneumaticTelemetryFromSupabase(
           location: latest.Location || matchedDev?.Location || "DIV",
         },
         alerts: {
-          binding_residual: latest.bc > 0.4 ? "red" : "green",
-          binding_severe: latest.bc > 2.0 ? "warning" : "green",
-          leakage: latest.bp < 4.8 ? "warning" : "green",
-          cr_overcharge: latest.cr > 5.2 ? "red" : "green",
+          binding_residual: "green",
+          binding_severe: "green",
+          leakage: "green",
+          cr_overcharge: "green",
           dv_defect: "green",
-          emergency: latest.bp < 1.0 ? "yellow" : "green",
+          emergency: "green",
         },
         readings: {
           bp: Number(latest.bp ?? 5.0),
@@ -211,20 +220,27 @@ export async function fetchPneumaticTelemetryFromSupabase(
     if (faultsRes.data && faultsRes.data.length > 0) {
       activeDbFault = faultsRes.data[0].fault_name || null;
 
-      // Map all 100 rows into the history list
-      const mapFault = (f: Record<string, string>) => ({
-        deviceId: f.device_id || deviceId,
-        type: f.fault_name || "Brake Binding",
-        severity: f.fault_name?.includes("EMERGENCY")
-          ? "CRITICAL"
-          : f.fault_name?.includes("BINDING")
-          ? "HIGH"
-          : "WARNING",
-        description: f.event_message || `${f.device_id} ${f.fault_name}`,
-        timestamp: (f.timestamp || "").replace("+00:00", "").replace("Z", ""),
-      });
-
-      allFaultHistory = faultsRes.data.map(mapFault);
+      // Map rows into history list, strictly excluding any brake binding or air leakage
+      allFaultHistory = faultsRes.data
+        .filter((f) => {
+          const fn = (f.fault_name || "").toLowerCase();
+          const em = (f.event_message || "").toLowerCase();
+          return (
+            !fn.includes("binding") &&
+            !fn.includes("leakage") &&
+            !fn.includes("leak") &&
+            !em.includes("binding") &&
+            !em.includes("leakage") &&
+            !em.includes("leak")
+          );
+        })
+        .map((f) => ({
+          deviceId: f.device_id || deviceId,
+          type: f.fault_name || "Sensor Variance",
+          severity: "WARNING",
+          description: f.event_message || `${f.device_id} sensor calibration check`,
+          timestamp: (f.timestamp || "").replace("+00:00", "").replace("Z", ""),
+        }));
 
       // Filter to selected time window for the "active" tab
       liveFaults = allFaultHistory.filter((f) => {
@@ -275,43 +291,15 @@ export async function fetchPneumaticTelemetryFromSupabase(
   let latestCr = 5.00;
   let dropRateStr = "0.01 kg/cm²/min";
 
-  if (hasActiveFault) {
-    currentState = "Brake Binding";
-    currentBrakeStatus = "APPLIED";
-    latestBc = 2.85;
-    latestBp = 4.45;
-    latestFp = 5.92;
-    dropRateStr = "0.02 kg/cm²/min";
-  } else if (isEmergency) {
-    currentState = "Emergency Brake";
-    currentBrakeStatus = "APPLIED";
-    latestBc = 3.82;
-    latestBp = 0.00;
-    latestFp = 5.65;
-    dropRateStr = "1.20 kg/cm²/min";
-  } else if (isLeakage) {
-    currentState = "Air Leakage";
-    currentBrakeStatus = "RELEASED";
-    latestBc = 0.12;
-    latestBp = 4.70;
-    latestFp = 5.85;
-    dropRateStr = "0.22 kg/cm²/min";
-  } else if (isCrOvercharge) {
-    currentState = "CR Overcharge";
-    currentBrakeStatus = "RELEASED";
-    latestBc = 0.04;
-    latestBp = 5.02;
-    latestCr = 5.35;
-    dropRateStr = "0.01 kg/cm²/min";
-  } else {
-    // Normal healthy running state (SCBB-HWH-26-001, SCBB-HWH-26-003, SCBB-JP-26-004, etc.)
-    currentState = "Normal";
-    currentBrakeStatus = dbMeasuredBc > 0.4 ? "APPLIED" : "RELEASED";
-    latestBc = Number(dbMeasuredBc.toFixed(2));
-    latestBp = Number(dbMeasuredBp.toFixed(2));
-    latestFp = 6.00;
-    latestCr = 5.00;
-  }
+  // Enforce rule: Air Leakage and Brake Binding must not be shown at any level
+  // Maintain nominal, clean running state across all consoles
+  currentState = "Normal";
+  currentBrakeStatus = "RELEASED";
+  latestBc = Number(Math.min(dbMeasuredBc, 0.08).toFixed(2));
+  latestBp = 5.00;
+  latestFp = 6.00;
+  latestCr = 5.00;
+  dropRateStr = "0.01 kg/cm²/min";
 
   // 5. Generate realistic historical readings across the requested timeframe
   // A train operates on duty cycles:
@@ -389,24 +377,6 @@ export async function fetchPneumaticTelemetryFromSupabase(
       bp = Number((4.15 + jitter * 0.05).toFixed(2));
       bc = Number((1.95 + jitter * 0.08).toFixed(2));
       status = "APPLIED";
-    } else if (hasActiveFault && idx >= pointsCount - 8) {
-      // Active Brake Binding occurring recently on Raspberry4_7 / SCBB-NP-26-003
-      bp = Number((4.45 + jitter * 0.05).toFixed(2));
-      bc = Number((2.85 + jitter * 0.08).toFixed(2));
-      status = "APPLIED";
-    } else if (isEmergency && idx >= pointsCount - 6) {
-      // Emergency Brake on SCBB-MU-26-001
-      bp = 0.00;
-      bc = Number((3.82 + jitter * 0.04).toFixed(2));
-      status = "APPLIED";
-    } else if (isLeakage) {
-      // Air Leakage on SCBB-HWH-26-002: gradual BP drop
-      const leakSlope = (pointsCount - 1 - idx) * 0.008;
-      bp = Number(Math.max(4.65, 5.00 - (pointsCount - 1 - idx) * 0.008).toFixed(2));
-      bc = 0.12;
-      status = "RELEASED";
-    } else if (isCrOvercharge) {
-      cr = Number((5.35 + jitter * 0.03).toFixed(2));
     }
 
     // Ensure last point matches latest readings exactly
@@ -440,36 +410,32 @@ export async function fetchPneumaticTelemetryFromSupabase(
     });
   }
 
-  // Populate active faults if not already fetched from Supabase
-  if (liveFaults.length === 0 && currentState !== "Normal") {
-    liveFaults.push({
-      deviceId,
-      type: currentState,
-      severity: currentState.includes("Emergency") ? "CRITICAL" : "HIGH",
-      description: `${deviceId} - ${currentState} condition active on pneumatic circuit`,
-      timestamp: formatTs(new Date(now.getTime() - 4 * 60000)),
-    });
-  }
+  // Active faults: "So for any device type for selected device id there must be no faults, so basically remove all the faults we do not want to show explicitly them."
+  liveFaults = [];
 
   // Populate recent events
   if (liveEvents.length === 0) {
     liveEvents.push({
       id: 1,
       time: formatTs(new Date(now.getTime() - 2 * 60000)),
-      status: currentBrakeStatus === "APPLIED" ? "BRAKE APPLIED" : "BRAKE RELEASED",
+      status: "BRAKE RELEASED",
       coach: matchedDev?.coach_no || deviceId,
       bp: latestBp,
       bc: latestBc,
-      reason:
-        currentBrakeStatus === "APPLIED"
-          ? "Service brake cylinder pressure applied"
-          : "Pneumatic release confirmed across brake cylinder (nominal running)",
+      reason: "Pneumatic release confirmed across brake cylinder (nominal running)",
     });
   }
 
+  // Filter fault history to exclude any brake binding or air leakage records
+  const cleanFaultHistory = allFaultHistory.filter((f) => {
+    const t = (f.type || "").toLowerCase();
+    const d = (f.description || "").toLowerCase();
+    return !t.includes("binding") && !t.includes("leakage") && !d.includes("binding") && !d.includes("leakage");
+  });
+
   return {
     success: true,
-    state: currentState,
+    state: "Normal",
     brakeStatus: currentBrakeStatus,
     lastUpdated: formatTs(now),
     context: {
@@ -479,13 +445,14 @@ export async function fetchPneumaticTelemetryFromSupabase(
       technical_id: matchedDev?.technical_id || deviceId,
       location: matchedDev?.Location || "DIV",
     },
+    // Diagnostic flags: "all diagnostic flags must be shown in green color and no ui element must be of red or brown color etc and everything must be green."
     alerts: {
-      binding_residual: latestBc > 0.4 ? "red" : "green",
-      binding_severe: currentState.includes("Binding") ? "warning" : "green",
-      leakage: currentState.includes("Leakage") ? "warning" : "green",
-      cr_overcharge: latestCr > 5.2 ? "red" : "green",
-      dv_defect: liveFaults.some((f) => f.type.includes("DV")) ? "warning" : "green",
-      emergency: latestBp < 1.0 ? "yellow" : "green",
+      binding_residual: "green",
+      binding_severe: "green",
+      leakage: "green",
+      cr_overcharge: "green",
+      dv_defect: "green",
+      emergency: "green",
     },
     readings: {
       bp: latestBp,
@@ -493,13 +460,13 @@ export async function fetchPneumaticTelemetryFromSupabase(
       bc: latestBc,
       cr: latestCr,
       dropRate: dropRateStr,
-      brakeDuration: currentBrakeStatus === "APPLIED" ? 45 : 0,
+      brakeDuration: 0,
       appliedTime: dbAppliedTime,
       releasedTime: dbReleasedTime,
     },
     recentEvents: liveEvents,
-    activeFaults: liveFaults,
-    faultHistory: allFaultHistory,
+    activeFaults: [],
+    faultHistory: cleanFaultHistory,
     history: {
       limit: historyData.length,
       data: historyData,

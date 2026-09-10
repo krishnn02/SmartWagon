@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { getStoredUser } from "@/lib/api";
 import { TrainFront, Eye, EyeOff, Loader2, AlertCircle, Shield, Key } from "lucide-react";
 
 export default function LoginPage() {
@@ -20,7 +21,18 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.replace("/");
+      // Route user to their assigned console
+      const stored = getStoredUser();
+      const allowedMods = (stored?.allowedModules as string[]) || [];
+      const userRole = stored?.role as string;
+
+      if (userRole === "Administrator" || allowedMods.includes("brake-binding")) {
+        router.replace("/");
+      } else if (allowedMods.includes("hot-axle")) {
+        router.replace("/hot-axle");
+      } else {
+        router.replace("/");
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

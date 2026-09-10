@@ -99,7 +99,7 @@ export const INITIAL_USERS: UserConsoleProfile[] = [
     division: "Nagpur",
     allowedModules: ["hot-axle"],
     allowedDevices: {
-      "hot-axle": ["Raspberry4_7"],
+      "hot-axle": ["SCBB - NP-003", "Raspberry4_7"],
     },
     isActive: true,
     createdAt: "2026-04-05T09:00:00.000Z",
@@ -130,16 +130,112 @@ export function getUsers(): UserConsoleProfile[] {
   }
 }
 
-export function getUserByEmail(email: string): UserConsoleProfile | undefined {
+export function getUserByEmail(emailOrUsername: string): UserConsoleProfile | undefined {
+  if (!emailOrUsername) return undefined;
   const users = getUsers();
-  const normalized = email.trim().toLowerCase();
-  return users.find((u) => u.email.toLowerCase() === normalized);
+  const normalized = emailOrUsername.trim().toLowerCase();
+
+  // 1. Exact email match
+  let found = users.find((u) => u.email.toLowerCase() === normalized);
+  if (found) return found;
+
+  // 2. User ID match (e.g. "usr-nagpur", "usr-howrah", "usr-admin")
+  found = users.find((u) => u.id.toLowerCase() === normalized);
+  if (found) return found;
+
+  // 3. Username prefix match (e.g. "axle.nagpur" from "axle.nagpur@railnet.gov.in")
+  found = users.find((u) => u.email.toLowerCase().split("@")[0] === normalized);
+  if (found) return found;
+
+  // 4. Division match (e.g. "nagpur", "howrah", "jaipur")
+  found = users.find((u) => u.division.toLowerCase() === normalized);
+  if (found) return found;
+
+  // 5. Name match (e.g. "Nagpur Axle Depot Inspector")
+  found = users.find((u) => u.name.toLowerCase() === normalized || u.name.toLowerCase().includes(normalized));
+  return found;
 }
 
-export function saveUsers(users: UserConsoleProfile[]): void {
+export const USER_PERMISSIONS_UPDATED_EVENT = "smart_coach_user_permissions_updated";
+
+export function notifyUserPermissionsUpdated(updatedUserId?: string): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    // 1. Only sync to localStorage["smart_coach_user"] IF the currently active session belongs to the user who was updated
+    const currentStoredUserRaw = localStorage.getItem("smart_coach_user");
+    if (currentStoredUserRaw) {
+      const currentStoredUser = JSON.parse(currentStoredUserRaw);
+      const allUsers = getUsers();
+
+      const isCurrentSessionUserUpdated =
+        !updatedUserId ||
+        updatedUserId === currentStoredUser.user_id ||
+        (currentStoredUser.email &&
+          allUsers.some(
+            (u) =>
+              u.id === updatedUserId &&
+              u.email.toLowerCase() === (currentStoredUser.email || "").toLowerCase()
+          ));
+
+      if (isCurrentSessionUserUpdated) {
+        const matched = allUsers.find(
+          (u) =>
+            u.id === currentStoredUser.user_id ||
+            u.email.toLowerCase() === (currentStoredUser.email || "").toLowerCase()
+        );
+
+        if (matched) {
+          const [firstName, ...rest] = matched.name.split(" ");
+          const lastName = rest.join(" ") || "";
+
+          const updatedSession = {
+            ...currentStoredUser,
+            name: matched.name,
+            first_name: firstName,
+            last_name: lastName,
+            email: matched.email,
+            role: matched.role,
+            role_id: matched.role === "Administrator" ? 1 : 2,
+            zone_name: matched.zone,
+            division_name: matched.division,
+            allowedModules: matched.allowedModules,
+            allowedDevices: matched.allowedDevices,
+          };
+
+          localStorage.setItem("smart_coach_user", JSON.stringify(updatedSession));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Error auto-syncing active session in localStorage:", err);
+  }
+
+  // 2. Dispatch custom event for same-tab instant reactivity
+  window.dispatchEvent(
+    new CustomEvent(USER_PERMISSIONS_UPDATED_EVENT, {
+      detail: { userId: updatedUserId, timestamp: Date.now() },
+    })
+  );
+
+  // 3. Dispatch storage event for other open tabs/windows
+  try {
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: STORAGE_KEY,
+        newValue: localStorage.getItem(STORAGE_KEY),
+      })
+    );
+  } catch {
+    // Ignore storage event dispatch error
+  }
+}
+
+export function saveUsers(users: UserConsoleProfile[], updatedUserId?: string): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+    notifyUserPermissionsUpdated(updatedUserId);
   } catch (err) {
     console.error("Failed to save users to localStorage:", err);
   }
@@ -156,7 +252,7 @@ export function createUser(data: Omit<UserConsoleProfile, "id" | "createdAt" | "
   };
 
   const updated = [newUser, ...users];
-  saveUsers(updated);
+  saveUsers(updated, newUser.id);
   return newUser;
 }
 
@@ -167,7 +263,7 @@ export function updateUser(id: string, updates: Partial<UserConsoleProfile>): Us
 
   const updatedUser = { ...users[index], ...updates };
   users[index] = updatedUser;
-  saveUsers(users);
+  saveUsers(users, id);
   return updatedUser;
 }
 
@@ -180,7 +276,7 @@ export function deleteUser(id: string): boolean {
   }
 
   const updated = users.filter((u) => u.id !== id);
-  saveUsers(updated);
+  saveUsers(updated, id);
   return true;
 }
 

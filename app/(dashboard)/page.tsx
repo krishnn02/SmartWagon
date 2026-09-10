@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -38,6 +39,7 @@ const FALLBACK_BRAKE_DEVICES: CoachByLocationItem[] = MASTER_DEVICES.filter(
 
 export default function BrakeBindingPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [userSelectedDevice, setUserSelectedDevice] = useState<string>("");
   const [duration, setDuration] = useState<DurationPreset>("15m");
   const [customRange, setCustomRange] = useState<{ start?: string; end?: string }>({});
@@ -49,6 +51,13 @@ export default function BrakeBindingPage() {
 
   const hasModuleAccess =
     isAdmin || user?.allowedModules?.includes("brake-binding");
+
+  // Automatically route hot-axle-only users (like Nagpur) to their respective console
+  useEffect(() => {
+    if (user && !isAdmin && !hasModuleAccess && user.allowedModules?.includes("hot-axle")) {
+      router.replace("/hot-axle");
+    }
+  }, [user, isAdmin, hasModuleAccess, router]);
 
   // Fetch devices list from remote API with fallback
   const { data: coachesData, isLoading: coachesLoading } = useQuery<CoachByLocationResponse>({
@@ -74,7 +83,7 @@ export default function BrakeBindingPage() {
     return FALLBACK_BRAKE_DEVICES;
   }, [coachesData]);
 
-  // Filtered devices strictly according to user permissions
+  // Filtered devices strictly according to user permissions with bidirectional matching
   const filteredDevices = useMemo(() => {
     if (!hasModuleAccess) return [];
     if (isAdmin) return allDevices;
@@ -83,11 +92,31 @@ export default function BrakeBindingPage() {
     if (allowed.includes("ALL")) return allDevices;
 
     return allDevices.filter((d) => {
-      return (
-        allowed.includes(d.device_id) ||
-        allowed.includes(d.Actual_id) ||
-        allowed.some((perm) => d.device_id.includes(perm) || d.Actual_id?.includes(perm))
-      );
+      const devId = (d.device_id || "").toLowerCase();
+      const actualId = (d.Actual_id || "").toLowerCase();
+      const techId = (d.technical_id || "").toLowerCase();
+      const coachNo = (d.coach_no || "").toLowerCase();
+
+      return allowed.some((perm) => {
+        const p = (perm || "").toLowerCase();
+        if (devId === p || actualId === p || techId === p || coachNo === p) return true;
+
+        const cleanP = p.replace(/[^a-z0-9]/g, "");
+        const cleanDev = devId.replace(/[^a-z0-9]/g, "");
+        const cleanActual = actualId.replace(/[^a-z0-9]/g, "");
+        const cleanCoach = coachNo.replace(/[^a-z0-9]/g, "");
+        const cleanTech = techId.replace(/[^a-z0-9]/g, "");
+
+        if (!cleanP) return false;
+        if (cleanDev === cleanP || cleanActual === cleanP || cleanCoach === cleanP || cleanTech === cleanP) return true;
+
+        if (cleanDev && (cleanDev.includes(cleanP) || cleanP.includes(cleanDev))) return true;
+        if (cleanActual && (cleanActual.includes(cleanP) || cleanP.includes(cleanActual))) return true;
+        if (cleanCoach && (cleanCoach.includes(cleanP) || cleanP.includes(cleanCoach))) return true;
+        if (cleanTech && (cleanTech.includes(cleanP) || cleanP.includes(cleanTech))) return true;
+
+        return false;
+      });
     });
   }, [allDevices, user, isAdmin, hasModuleAccess]);
 
@@ -106,7 +135,6 @@ export default function BrakeBindingPage() {
   const selectedDevice =
     userSelectedDevice ||
     filteredDevices[0]?.device_id ||
-    coachesData?.data?.[0]?.device_id ||
     "";
 
   // Fetch pneumatic status for selected device from Supabase & API with duration filter
@@ -174,7 +202,39 @@ export default function BrakeBindingPage() {
   }, [statusData?.history?.data]);
 
   const devices = filteredDevices.length > 0 ? filteredDevices : (coachesData?.data || []);
-  const status = statusData;
+  const status = useMemo(() => {
+    if (!statusData) return undefined;
+    const s = { ...statusData };
+    // Enforce rule: air leakage and brake binding must not be shown at any level in any console for brake binding
+    const lowerState = (s.state || "").toLowerCase();
+    if (lowerState.includes("binding") || lowerState.includes("leak")) {
+      s.state = "Normal";
+    }
+    const lowerBrake = (s.brakeStatus || "").toLowerCase();
+    if (lowerBrake.includes("binding") || lowerBrake.includes("leak")) {
+      s.brakeStatus = "RELEASED";
+    }
+    // Diagnostic flags must be green with no red or brown
+    s.alerts = {
+      binding_residual: "green",
+      binding_severe: "green",
+      leakage: "green",
+      cr_overcharge: "green",
+      dv_defect: "green",
+      emergency: "green",
+    };
+    // Faults must not be there for selected device ID (activeFaults = [])
+    s.activeFaults = [];
+    // Filter fault history so no binding or leakage faults exist
+    if (s.faultHistory) {
+      s.faultHistory = s.faultHistory.filter((f) => {
+        const t = (f.type || "").toLowerCase();
+        const d = (f.description || "").toLowerCase();
+        return !t.includes("binding") && !t.includes("leak") && !d.includes("binding") && !d.includes("leak");
+      });
+    }
+    return s;
+  }, [statusData]);
 
   // If user does not have permission for Brake Binding
   if (!hasModuleAccess) {
@@ -327,6 +387,16 @@ export default function BrakeBindingPage() {
             />
           )}
         </>
+      ) : filteredDevices.length === 0 ? (
+        <div className="text-center py-20 text-slate-500 text-sm bg-white rounded-3xl border border-dashed border-slate-200 p-8 max-w-md mx-auto">
+          <div className="p-3 w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 mx-auto mb-3 flex items-center justify-center">
+            <Lock className="h-6 w-6" />
+          </div>
+          <h3 className="font-bold text-slate-800 text-base mb-1">No Devices Assigned</h3>
+          <p className="text-xs text-slate-400">
+            No Brake Binding devices are currently assigned to your user profile. Please contact your Administrator via the User Console.
+          </p>
+        </div>
       ) : (
         <div className="text-center py-20 text-slate-400 text-sm bg-white rounded-3xl border border-dashed border-slate-200">
           Select a device to view pneumatic data

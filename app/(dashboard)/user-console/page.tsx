@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import {
   getUsers,
@@ -8,6 +8,7 @@ import {
   updateUser,
   deleteUser,
   getActiveSessions,
+  USER_PERMISSIONS_UPDATED_EVENT,
   type UserConsoleProfile,
   type UserRole,
 } from "@/lib/user-store";
@@ -47,12 +48,25 @@ const ROLES: UserRole[] = [
 ];
 
 export default function UserConsolePage() {
-  const { user: currentUser, impersonateUser } = useAuth();
+  const { user: currentUser, impersonateUser, refreshCurrentUser } = useAuth();
   const [usersList, setUsersList] = useState<UserConsoleProfile[]>(() => getUsers());
   const [activeTab, setActiveTab] = useState<"users" | "sessions">("users");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState<string>("All");
   const [filterZone, setFilterZone] = useState<string>("All");
+
+  // Real-time synchronization: listen for external or cross-tab updates to usersList
+  useEffect(() => {
+    const handleUpdate = () => {
+      setUsersList(getUsers());
+    };
+    window.addEventListener(USER_PERMISSIONS_UPDATED_EVENT, handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener(USER_PERMISSIONS_UPDATED_EVENT, handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -75,6 +89,7 @@ export default function UserConsolePage() {
 
   const refreshData = () => {
     setUsersList(getUsers());
+    refreshCurrentUser?.();
   };
 
   // Brake & Axle devices from master
@@ -171,28 +186,36 @@ export default function UserConsolePage() {
       return;
     }
 
-    const allowedModules: ("brake-binding" | "hot-axle")[] = [];
-    if (enableBrakeBinding) allowedModules.push("brake-binding");
-    if (enableHotAxle) allowedModules.push("hot-axle");
+    // For non-admin, a module is only active if at least one device is selected!
+    const effectiveBrakeDevices = formRole === "Administrator" ? ["ALL"] : selectedBrakeDevices;
+    const effectiveAxleDevices = formRole === "Administrator" ? ["ALL"] : selectedAxleDevices;
 
-    if (allowedModules.length === 0) {
-      setFormError("Select at least one module (Brake Binding or Hot Axle).");
+    const hasBrakeSelected = enableBrakeBinding && effectiveBrakeDevices.length > 0;
+    const hasAxleSelected = enableHotAxle && effectiveAxleDevices.length > 0;
+
+    const allowedModules: ("brake-binding" | "hot-axle")[] = [];
+    if (formRole === "Administrator") {
+      allowedModules.push("brake-binding", "hot-axle");
+    } else {
+      if (hasBrakeSelected) allowedModules.push("brake-binding");
+      if (hasAxleSelected) allowedModules.push("hot-axle");
+    }
+
+    if (allowedModules.length === 0 && formRole !== "Administrator") {
+      setFormError("Please select at least one device for Brake Binding or Hot Axle.");
       return;
     }
 
     // Check if all devices are selected
     const allBrakeSelected =
-      selectedBrakeDevices.length === brakeDevices.length || formRole === "Administrator";
+      effectiveBrakeDevices.length === brakeDevices.length || formRole === "Administrator";
     const allAxleSelected =
-      selectedAxleDevices.length === axleDevices.length || formRole === "Administrator";
+      effectiveAxleDevices.length === axleDevices.length || formRole === "Administrator";
 
-    const allowedDevices: { "brake-binding"?: string[]; "hot-axle"?: string[] } = {};
-    if (enableBrakeBinding) {
-      allowedDevices["brake-binding"] = allBrakeSelected ? ["ALL"] : selectedBrakeDevices;
-    }
-    if (enableHotAxle) {
-      allowedDevices["hot-axle"] = allAxleSelected ? ["ALL"] : selectedAxleDevices;
-    }
+    const allowedDevices: { "brake-binding"?: string[]; "hot-axle"?: string[] } = {
+      "brake-binding": hasBrakeSelected ? (allBrakeSelected ? ["ALL"] : effectiveBrakeDevices) : [],
+      "hot-axle": hasAxleSelected ? (allAxleSelected ? ["ALL"] : effectiveAxleDevices) : [],
+    };
 
     try {
       if (editingUserId) {

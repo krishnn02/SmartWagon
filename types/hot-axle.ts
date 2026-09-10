@@ -55,4 +55,6 @@ export interface MappedCoachData {
     'A4-2'?: AxleReading;
   };
   latestTimestamp: string | null;
+  masterId?: string;
+  deviceId?: string;
 }

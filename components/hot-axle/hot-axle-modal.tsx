@@ -5,7 +5,7 @@ import { X, Thermometer, TableProperties, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MappedCoachData, AxleReading, HamsData } from "@/types/hot-axle";
 import { AxleDigitalTwin } from "./axle-digital-twin";
-import { formatAxleDate } from "@/lib/axle-utils";
+import { formatAxleDate, getHotAxleIdentifiers } from "@/lib/axle-utils";
 
 interface HotAxleModalProps {
   data: MappedCoachData;
@@ -17,6 +17,10 @@ export function HotAxleModal({ data, rawReadings = [], onClose }: HotAxleModalPr
   const [activeTab, setActiveTab] = useState<"twin" | "table">("twin");
   const isCritical = data.status === "Critical";
   const isWarning = data.status === "Warning";
+
+  const identifiers = getHotAxleIdentifiers(data.coach);
+  const masterId = data.masterId || identifiers.masterId;
+  const deviceId = data.deviceId || identifiers.deviceId;
 
   const latestBattery =
     data.readings.length > 0 ? data.readings[0].battery_voltage : null;
@@ -51,7 +55,7 @@ export function HotAxleModal({ data, rawReadings = [], onClose }: HotAxleModalPr
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="font-extrabold text-base sm:text-lg text-slate-100 truncate">
-                  {data.coach.coach_no || data.coach.device_id}
+                  {data.coach.coach_no || "LWSCZAC"}
                 </h2>
                 <span
                   className={cn(
@@ -66,11 +70,18 @@ export function HotAxleModal({ data, rawReadings = [], onClose }: HotAxleModalPr
                   {data.status}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 truncate mt-0.5">
-                Device: <span className="text-slate-200">{data.coach.device_id || "N/A"}</span> &bull; Train:{" "}
-                <span className="text-slate-200">{data.coach.train_no || "N/A"}</span> &bull; Location:{" "}
-                <span className="text-slate-200">{data.coach.location || "NR"}</span>
-              </p>
+              <div className="flex items-center gap-2 text-xs text-slate-400 flex-wrap mt-1">
+                <span className="inline-flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800 text-[11px]">
+                  <span className="text-slate-500 font-medium">Master ID :-</span>
+                  <span className="font-bold text-slate-200 font-mono">{masterId}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800 text-[11px]">
+                  <span className="text-slate-500 font-medium">Device ID :-</span>
+                  <span className="font-bold text-slate-200 font-mono">{deviceId}</span>
+                </span>
+                <span className="text-slate-400">&bull; Train: <strong className="text-slate-200">{data.coach.train_no || "1207069"}</strong></span>
+                <span className="text-slate-400">&bull; Location: <strong className="text-slate-200">{data.coach.location || "Nagpur"}</strong></span>
+              </div>
             </div>
           </div>
 

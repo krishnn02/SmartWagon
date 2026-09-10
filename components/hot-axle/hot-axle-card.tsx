@@ -3,7 +3,7 @@
 import { Eye, Thermometer, Train, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MappedCoachData } from "@/types/hot-axle";
-import { getAxleTemperatureColor } from "@/lib/axle-utils";
+import { getAxleTemperatureColor, getHotAxleIdentifiers } from "@/lib/axle-utils";
 
 interface HotAxleCardProps {
   data: MappedCoachData;
@@ -16,6 +16,10 @@ export function HotAxleCard({ data, onView }: HotAxleCardProps) {
 
   const slotNames = ['A1-1', 'A1-2', 'A2-1', 'A2-2', 'A3-1', 'A3-2', 'A4-1', 'A4-2'];
   const maxTempColor = getAxleTemperatureColor(data.maxTemp > 0 ? data.maxTemp : null);
+
+  const identifiers = getHotAxleIdentifiers(data.coach);
+  const masterId = data.masterId || identifiers.masterId;
+  const deviceId = data.deviceId || identifiers.deviceId;
 
   return (
     <div
@@ -40,18 +44,25 @@ export function HotAxleCard({ data, onView }: HotAxleCardProps) {
       <div className="relative z-10 space-y-4">
         {/* Header */}
         <div className="flex justify-between items-start">
-          <div>
-            <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
-              <Train className="h-4 w-4 text-slate-400" />
-              {data.coach.coach_no || data.coach.device_id}
+          <div className="space-y-1">
+            <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5 tracking-tight">
+              <Train className="h-4 w-4 text-slate-400 shrink-0" />
+              <span>{data.coach.coach_no || "LWSCZAC"}</span>
             </h3>
-            <p className="text-[10px] text-slate-500 font-medium ml-5.5 mt-0.5">
-              Device: {data.coach.device_id || "N/A"}
-            </p>
+            <div className="text-[10.5px] leading-tight space-y-0.5 pl-5.5">
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-400 uppercase text-[9.5px] tracking-wider">Master ID :-</span>
+                <span className="font-bold text-slate-800 font-mono">{masterId}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-400 uppercase text-[9.5px] tracking-wider">Device ID :-</span>
+                <span className="font-bold text-slate-800 font-mono">{deviceId}</span>
+              </div>
+            </div>
           </div>
           <div
             className={cn(
-              "text-[9px] font-bold px-2 py-1 rounded-md tracking-wider shadow-sm",
+              "text-[9px] font-bold px-2.5 py-1 rounded-lg tracking-wider shadow-sm shrink-0",
               isCritical
                 ? "bg-red-500 text-white"
                 : isWarning

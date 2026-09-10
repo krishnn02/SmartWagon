@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Bell, Loader2, Sparkles, Train, Lock, LayoutDashboard } from "lucide-react";
@@ -10,8 +11,9 @@ import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 
 import type { CoachHams, HamsData, MappedCoachData, AxleReading } from "@/types/hot-axle";
+import { getHotAxleIdentifiers } from "@/lib/axle-utils";
 
-import { HotAxleFilters } from "@/components/hot-axle/hot-axle-filters";
+import { HotAxleFilters, type FilterState, type UniqueIdOption } from "@/components/hot-axle/hot-axle-filters";
 import { HotAxleCard } from "@/components/hot-axle/hot-axle-card";
 import { HotAxleModal } from "@/components/hot-axle/hot-axle-modal";
 import { HotAxleAlertsView } from "@/components/hot-axle/hot-axle-alerts-view";
@@ -29,17 +31,19 @@ type ViewType = "Coaches" | "Axle Twin" | "Chart" | "Alerts";
 
 export default function HotAxlePage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [viewType, setViewType] = useState<ViewType>("Coaches");
   const [selectedDevice, setSelectedDevice] = useState<MappedCoachData | null>(null);
   const [selectedTwinCoachIndex, setSelectedTwinCoachIndex] = useState<number>(0);
   const [showReport, setShowReport] = useState(false);
   const [reportCoach, setReportCoach] = useState<MappedCoachData | null>(null);
 
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<FilterState>({
     trainNumber: "All",
     coachType: "All",
     uniqueId: "All",
     status: "All",
+    sortBy: "default",
   });
 
   // Fetch coaches
@@ -114,6 +118,13 @@ export default function HotAxlePage() {
   const hasModuleAccess =
     isAdmin || user?.allowedModules?.includes("hot-axle");
 
+  // Automatically route brake-binding-only users to their respective console
+  useEffect(() => {
+    if (user && !isAdmin && !hasModuleAccess && user.allowedModules?.includes("brake-binding")) {
+      router.replace("/");
+    }
+  }, [user, isAdmin, hasModuleAccess, router]);
+
   // Process data
   const mappedData = useMemo(() => {
     const result: MappedCoachData[] = [];
@@ -123,43 +134,97 @@ export default function HotAxlePage() {
     if (!isAdmin && user?.allowedDevices?.["hot-axle"]) {
       const allowed = user.allowedDevices["hot-axle"];
       if (!allowed.includes("ALL")) {
-        activeCoaches = activeCoaches.filter(
-          (c) =>
-            (c.device_id && allowed.includes(c.device_id)) ||
-            (c.coach_no && allowed.includes(c.coach_no)) ||
-            (c.actual_id && allowed.includes(c.actual_id))
-        );
+        activeCoaches = activeCoaches.filter((c) => {
+          const devId = (c.device_id || "").toLowerCase();
+          const actualId = (c.actual_id || "").toLowerCase();
+          const techId = (c.technical_id || "").toLowerCase();
+          const coachNo = (c.coach_no || "").toLowerCase();
+
+          return allowed.some((perm) => {
+            const p = (perm || "").toLowerCase();
+            if (devId === p || actualId === p || techId === p || coachNo === p) return true;
+
+            const cleanP = p.replace(/[^a-z0-9]/g, "");
+            const cleanDev = devId.replace(/[^a-z0-9]/g, "");
+            const cleanActual = actualId.replace(/[^a-z0-9]/g, "");
+            const cleanCoach = coachNo.replace(/[^a-z0-9]/g, "");
+            const cleanTech = techId.replace(/[^a-z0-9]/g, "");
+
+            if (!cleanP) return false;
+
+            // Handle Raspberry4_7 alias with SCBB - NP-003 and HAMS- M1-001
+            const isNpOrRaspberry =
+              cleanDev.includes("raspberry") ||
+              cleanDev.includes("np003") ||
+              cleanTech.includes("m1001") ||
+              cleanActual.includes("np003");
+            const allowsNpOrRaspberry =
+              cleanP.includes("np003") ||
+              cleanP.includes("raspberry") ||
+              cleanP.includes("m1001") ||
+              cleanP.includes("scbb");
+
+            if (isNpOrRaspberry && allowsNpOrRaspberry) return true;
+
+            if (cleanDev === cleanP || cleanActual === cleanP || cleanCoach === cleanP || cleanTech === cleanP) return true;
+            if (cleanDev && (cleanDev.includes(cleanP) || cleanP.includes(cleanDev))) return true;
+            if (cleanActual && (cleanActual.includes(cleanP) || cleanP.includes(cleanActual))) return true;
+            if (cleanCoach && (cleanCoach.includes(cleanP) || cleanP.includes(cleanCoach))) return true;
+
+            return false;
+          });
+        });
       }
     }
 
-    // If no coaches exist, but we have hams_data, generate a single fallback coach
-    if (activeCoaches.length === 0 && rawHamsData.length > 0 && (isAdmin || user?.allowedDevices?.["hot-axle"]?.includes("ALL") || user?.allowedDevices?.["hot-axle"]?.includes("Raspberry_Fallback"))) {
+    // Check whether the user has rights to the primary Hot Axle telemetry device
+    const userAllowsHotAxleDevice =
+      isAdmin ||
+      user?.allowedDevices?.["hot-axle"]?.includes("ALL") ||
+      (user?.allowedDevices?.["hot-axle"] &&
+        user.allowedDevices["hot-axle"].length > 0 &&
+        user.allowedDevices["hot-axle"].some((perm) => {
+          const cleanP = perm.toLowerCase().replace(/[^a-z0-9]/g, "");
+          return (
+            cleanP.includes("np003") ||
+            cleanP.includes("raspberry") ||
+            cleanP.includes("m1001") ||
+            cleanP.includes("scbb") ||
+            cleanP.includes("coachmain")
+          );
+        }));
+
+    // If no coaches exist, but we have hams_data, generate a single fallback coach ONLY if the user has rights
+    if (activeCoaches.length === 0 && rawHamsData.length > 0 && userAllowsHotAxleDevice) {
       activeCoaches.push({
         id: 1,
-        technical_id: `TECH-MASTER`,
-        coach_no: `COACH-MAIN`,
-        device_id: 'Raspberry_Fallback',
-        train_no: 'Unknown',
-        location: 'Unknown',
-        actual_id: 'Raspberry_Fallback'
+        technical_id: `M1-001`,
+        coach_no: `LWSCZAC`,
+        device_id: 'SCBB - NP-003',
+        train_no: '1207069',
+        location: 'Nagpur',
+        actual_id: 'SCBB - NP-003'
       });
     }
 
     for (const coach of activeCoaches) {
       let coachReadings = rawHamsData;
       
-      if (activeCoaches.length > 1 && coach.device_id && coach.device_id !== 'Raspberry4_7' && coach.device_id !== 'Raspberry_Fallback') {
+      if (activeCoaches.length > 1 && coach.device_id && coach.device_id !== 'Raspberry4_7' && coach.device_id !== 'SCBB - NP-003' && coach.device_id !== 'Raspberry_Fallback') {
          coachReadings = rawHamsData.filter(d => d.master_id?.includes(coach.device_id || '') || d.device_id === coach.device_id);
       }
 
       if (coachReadings.length === 0) {
+        const identifiers = getHotAxleIdentifiers(coach);
         result.push({
           coach,
           readings: [],
           maxTemp: 0,
           status: 'Good',
           axleSlots: {},
-          latestTimestamp: null
+          latestTimestamp: null,
+          masterId: identifiers.masterId,
+          deviceId: identifiers.deviceId,
         });
         continue;
       }
@@ -237,36 +302,103 @@ export default function HotAxlePage() {
         }
       });
 
+      const identifiers = getHotAxleIdentifiers(coach);
       result.push({
         coach,
         readings: coachReadings,
         maxTemp,
         status: hasCritical ? 'Critical' : hasWarning ? 'Warning' : 'Good',
         axleSlots,
-        latestTimestamp
+        latestTimestamp,
+        masterId: identifiers.masterId,
+        deviceId: identifiers.deviceId,
       });
     }
 
     return result;
-  }, [coaches, rawHamsData]);
+  }, [coaches, rawHamsData, isAdmin, user]);
 
-  // Filter options
-  const trainOptions = Array.from(new Set(mappedData.map(d => d.coach.train_no).filter(Boolean))) as string[];
-  const uniqueIdOptions = Array.from(new Set(mappedData.map(d => d.coach.device_id).filter(Boolean))) as string[];
-  const coachTypeOptions = ["1AC", "2AC", "3AC", "SL"]; 
+  // Dynamically extract filter options from available data for the current role
+  const trainOptions = useMemo(() => {
+    return Array.from(new Set(mappedData.map((d) => d.coach.train_no).filter(Boolean))) as string[];
+  }, [mappedData]);
 
-  // Apply filters
-  const filteredData = useMemo(() => {
-    return mappedData.filter((d) => {
-      const matchTrain = filters.trainNumber === "All" || d.coach.train_no === filters.trainNumber;
-      const matchId = filters.uniqueId === "All" || d.coach.device_id === filters.uniqueId;
-      const matchStatus = filters.status === "All" || d.status === filters.status;
-      return matchTrain && matchId && matchStatus;
+  const coachTypeOptions = useMemo(() => {
+    return Array.from(new Set(mappedData.map((d) => d.coach.coach_no).filter(Boolean))) as string[];
+  }, [mappedData]);
+
+  const uniqueIdOptions: UniqueIdOption[] = useMemo(() => {
+    const map = new Map<string, string>();
+    mappedData.forEach((d) => {
+      const identifiers = getHotAxleIdentifiers(d.coach);
+      const val = d.coach.device_id || identifiers.deviceId;
+      const label = `${identifiers.deviceId} (${identifiers.masterId})`;
+      if (!map.has(val)) {
+        map.set(val, label);
+      }
     });
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [mappedData]);
+
+  const statusCounts = useMemo(() => {
+    return {
+      all: mappedData.length,
+      good: mappedData.filter((d) => d.status === "Good").length,
+      warning: mappedData.filter((d) => d.status === "Warning").length,
+      critical: mappedData.filter((d) => d.status === "Critical").length,
+    };
+  }, [mappedData]);
+
+  // Apply filters and sorting
+  const filteredData = useMemo(() => {
+    const list = mappedData.filter((d) => {
+      const identifiers = getHotAxleIdentifiers(d.coach);
+      const matchTrain = filters.trainNumber === "All" || d.coach.train_no === filters.trainNumber;
+      const matchCoachType = filters.coachType === "All" || d.coach.coach_no === filters.coachType;
+      const matchId =
+        filters.uniqueId === "All" ||
+        d.coach.device_id === filters.uniqueId ||
+        identifiers.deviceId === filters.uniqueId ||
+        identifiers.masterId === filters.uniqueId;
+      const matchStatus = filters.status === "All" || d.status === filters.status;
+      return matchTrain && matchCoachType && matchId && matchStatus;
+    });
+
+    // Apply sorting
+    if (filters.sortBy === "temp-desc") {
+      list.sort((a, b) => b.maxTemp - a.maxTemp);
+    } else if (filters.sortBy === "temp-asc") {
+      list.sort((a, b) => a.maxTemp - b.maxTemp);
+    } else if (filters.sortBy === "status") {
+      const rank = { Critical: 3, Warning: 2, Good: 1 };
+      list.sort((a, b) => rank[b.status] - rank[a.status]);
+    } else if (filters.sortBy === "coach") {
+      list.sort((a, b) => (a.coach.coach_no || "").localeCompare(b.coach.coach_no || ""));
+    } else if (filters.sortBy === "device") {
+      list.sort((a, b) => {
+        const idA = a.deviceId || getHotAxleIdentifiers(a.coach).deviceId;
+        const idB = b.deviceId || getHotAxleIdentifiers(b.coach).deviceId;
+        return idA.localeCompare(idB);
+      });
+    } else if (filters.sortBy === "newest") {
+      list.sort((a, b) => {
+        const tA = new Date(a.latestTimestamp || 0).getTime();
+        const tB = new Date(b.latestTimestamp || 0).getTime();
+        return tB - tA;
+      });
+    }
+
+    return list;
   }, [mappedData, filters]);
 
   const onClearFilters = () => {
-    setFilters({ trainNumber: "All", coachType: "All", uniqueId: "All", status: "All" });
+    setFilters({
+      trainNumber: "All",
+      coachType: "All",
+      uniqueId: "All",
+      status: "All",
+      sortBy: "default",
+    });
   };
 
   const currentTwinCoach = filteredData[selectedTwinCoachIndex] || filteredData[0] || mappedData[0];
@@ -316,68 +448,61 @@ export default function HotAxlePage() {
         </div>
       </div>
       
-      {/* Top Controls Row */}
-      <div className="flex flex-col xl:flex-row gap-4 mb-6">
-        {/* Filters */}
-        <div className="flex-grow">
-          <HotAxleFilters 
-            trainOptions={trainOptions}
-            coachTypeOptions={coachTypeOptions}
-            uniqueIdOptions={uniqueIdOptions}
-            filters={filters}
-            setFilters={setFilters}
-            onClearFilters={onClearFilters}
+      {/* View Mode & Quick Actions Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        {/* View Type Switcher */}
+        <div className="flex bg-slate-100/80 p-1 rounded-xl border border-slate-200/80 w-full sm:w-auto">
+          {(
+            [
+              { id: "Coaches", label: "Coaches", icon: Train },
+              { id: "Axle Twin", label: "Axle Twin", icon: Sparkles },
+              { id: "Chart", label: "Charts", icon: LineChart },
+              { id: "Alerts", label: "Alerts", icon: Bell },
+            ] as const
+          ).map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setViewType(v.id)}
+              className={cn(
+                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all border cursor-pointer",
+                viewType === v.id
+                  ? "bg-white text-blue-600 shadow-2xs border-slate-200"
+                  : "text-slate-600 border-transparent hover:text-slate-900 hover:bg-white/60"
+              )}
+            >
+              <v.icon className="h-3.5 w-3.5 shrink-0" />
+              <span>{v.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Quick Actions */}
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <button className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-colors whitespace-nowrap cursor-pointer">
+            <Bell className="h-3.5 w-3.5" />
+            <span>Notify Team</span>
+          </button>
+          <ReportTriggerButton
+            onClick={() => {
+              setReportCoach(filteredData[0] || mappedData[0] || null);
+              setShowReport(true);
+            }}
           />
         </div>
-
-        {/* Quick Actions & View Type */}
-        <div className="flex flex-col sm:flex-row gap-4 shrink-0">
-          {/* Quick Actions */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col justify-between w-full sm:w-auto">
-            <h3 className="text-[10px] font-bold text-slate-500 mb-3 block uppercase tracking-wider">Quick Actions</h3>
-            <div className="flex items-center gap-2 h-full">
-              <button className="bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-colors whitespace-nowrap">
-                <Bell className="h-3.5 w-3.5" /> Notify
-              </button>
-              <ReportTriggerButton
-                onClick={() => {
-                  setReportCoach(filteredData[0] || mappedData[0] || null);
-                  setShowReport(true);
-                }}
-              />
-            </div>
-          </div>
-
-          {/* View Type Switcher */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col justify-between w-full sm:w-auto">
-            <h3 className="text-[10px] font-bold text-slate-500 mb-3 block uppercase tracking-wider">View Mode</h3>
-            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200 h-full">
-              {(
-                [
-                  { id: "Coaches", label: "Coaches", icon: Train },
-                  { id: "Axle Twin", label: "Axle Twin", icon: Sparkles },
-                  { id: "Chart", label: "Charts", icon: LineChart },
-                  { id: "Alerts", label: "Alerts", icon: Bell },
-                ] as const
-              ).map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => setViewType(v.id)}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all border",
-                    viewType === v.id
-                      ? "bg-white text-blue-600 shadow-sm border-slate-200/60"
-                      : "text-slate-500 border-transparent hover:text-slate-700 hover:bg-slate-100"
-                  )}
-                >
-                  <v.icon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="hidden sm:inline">{v.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
+
+      {/* Dynamic Filters & Telemetry Sort Bar (Spacious, Fully Responsive) */}
+      <HotAxleFilters 
+        trainOptions={trainOptions}
+        coachTypeOptions={coachTypeOptions}
+        uniqueIdOptions={uniqueIdOptions}
+        filters={filters}
+        setFilters={setFilters}
+        onClearFilters={onClearFilters}
+        statusCounts={statusCounts}
+        totalCoaches={mappedData.length}
+        filteredCount={filteredData.length}
+      />
 
       {/* Content Area */}
       <div className="w-full">
@@ -438,7 +563,11 @@ export default function HotAxlePage() {
                     ))
                   ) : (
                     <div className="col-span-full p-12 text-center bg-white rounded-2xl border border-slate-100 border-dashed">
-                      <p className="text-slate-500 text-sm font-medium">No coaches found matching criteria.</p>
+                      <p className="text-slate-500 text-sm font-medium">
+                        {mappedData.length === 0
+                          ? "No Hot Axle devices assigned to your user profile. Contact your System Administrator in the User Console."
+                          : "No coaches found matching filter criteria."}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -508,7 +637,7 @@ export default function HotAxlePage() {
         <ReportModal
           onClose={() => setShowReport(false)}
           meta={{
-            deviceId: reportCoach?.coach.device_id || reportCoach?.coach.actual_id || "HAMS-M1-001",
+            deviceId: reportCoach?.deviceId || getHotAxleIdentifiers(reportCoach?.coach).deviceId,
             deviceType: "hot-axle",
             trainNo: reportCoach?.coach.train_no || "—",
             coachNo: reportCoach?.coach.coach_no || "—",
