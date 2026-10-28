@@ -37,7 +37,7 @@ export default function BrakeBindingPage() {
     queryKey: ["pneumatic-status", selectedDevice],
     queryFn: () => apiGet("/pneumatic/status", selectedDevice ? { deviceId: selectedDevice } : undefined),
     enabled: !!selectedDevice,
-    refetchInterval: 5000,
+    refetchInterval: 1000,
   });
 
   // Accumulate history for charts
